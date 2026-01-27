@@ -4,106 +4,85 @@ import { Platform } from 'react-native';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Debug logging
-console.log('[Supabase] URL configured:', !!supabaseUrl);
-console.log('[Supabase] Key configured:', !!supabaseAnonKey);
+// Storage key for session - must be consistent
+const STORAGE_KEY = 'sb-wektbfkzbxvtxsremnnk-auth-token';
 
-// Storage key for session
-const STORAGE_KEY = 'betterhalf-auth-token';
+// Singleton storage instance - critical for persistence
+let _storage: ReturnType<typeof createWebStorage> | null = null;
 
-// Robust localStorage wrapper that handles all edge cases
+// Create storage wrapper that uses localStorage directly
 const createWebStorage = () => {
-  // Check if we're in a browser environment with localStorage
-  const hasLocalStorage = typeof window !== 'undefined' && 
-    typeof window.localStorage !== 'undefined';
-  
-  if (!hasLocalStorage) {
-    console.log('[Supabase] localStorage not available, using memory storage');
-    // Fallback to in-memory storage for SSR/build time
-    const memoryStore: Record<string, string> = {};
-    return {
-      getItem: async (key: string): Promise<string | null> => {
-        return memoryStore[key] || null;
-      },
-      setItem: async (key: string, value: string): Promise<void> => {
-        memoryStore[key] = value;
-      },
-      removeItem: async (key: string): Promise<void> => {
-        delete memoryStore[key];
-      },
-    };
-  }
-
-  console.log('[Supabase] Using localStorage for session persistence');
   return {
-    getItem: async (key: string): Promise<string | null> => {
+    getItem: (key: string): string | null => {
+      if (typeof window === 'undefined') return null;
       try {
-        const value = window.localStorage.getItem(key);
-        console.log('[Supabase Storage] getItem:', key, value ? 'found' : 'not found');
-        return value;
-      } catch (error) {
-        console.error('[Supabase Storage] getItem error:', error);
+        return window.localStorage.getItem(key);
+      } catch {
         return null;
       }
     },
-    setItem: async (key: string, value: string): Promise<void> => {
+    setItem: (key: string, value: string): void => {
+      if (typeof window === 'undefined') return;
       try {
         window.localStorage.setItem(key, value);
-        console.log('[Supabase Storage] setItem:', key, 'saved');
-      } catch (error) {
-        console.error('[Supabase Storage] setItem error:', error);
+      } catch {
+        // Ignore storage errors
       }
     },
-    removeItem: async (key: string): Promise<void> => {
+    removeItem: (key: string): void => {
+      if (typeof window === 'undefined') return;
       try {
         window.localStorage.removeItem(key);
-        console.log('[Supabase Storage] removeItem:', key);
-      } catch (error) {
-        console.error('[Supabase Storage] removeItem error:', error);
+      } catch {
+        // Ignore storage errors
       }
     },
   };
 };
 
-// Create client with proper configuration
+// Get or create singleton storage
+const getStorage = () => {
+  if (!_storage) {
+    _storage = createWebStorage();
+  }
+  return _storage;
+};
+
+// Singleton Supabase client
 let _supabase: SupabaseClient | null = null;
 
 const createSupabaseClient = (): SupabaseClient | null => {
+  // Return existing instance if available
+  if (_supabase) return _supabase;
+  
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('[Supabase] Missing configuration - URL or Key not set');
+    console.warn('[Supabase] Missing configuration');
     return null;
   }
   
   try {
-    const storage = createWebStorage();
-    
-    const client = createClient(supabaseUrl, supabaseAnonKey, {
+    _supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        storage: storage,
+        storage: getStorage(),
         storageKey: STORAGE_KEY,
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: Platform.OS === 'web',
-        flowType: 'pkce',
       },
     });
-    console.log('[Supabase] Client created successfully with persistent storage');
-    return client;
+    return _supabase;
   } catch (error) {
     console.error('[Supabase] Failed to create client:', error);
     return null;
   }
 };
 
-export const getSupabase = (): SupabaseClient | null => {
-  if (!_supabase) {
-    _supabase = createSupabaseClient();
-  }
-  return _supabase;
-};
-
-// Initialize immediately for web
+// Export singleton
 export const supabase = createSupabaseClient();
+
+export const getSupabase = (): SupabaseClient | null => {
+  return _supabase || createSupabaseClient();
+};
 
 // Table names with prefix for isolation
 export const TABLES = {
