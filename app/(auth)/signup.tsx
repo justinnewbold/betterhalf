@@ -15,6 +15,7 @@ export default function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   const handleSignUp = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
@@ -22,13 +23,53 @@ export default function SignUp() {
       return;
     }
 
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    setError('');
     const result = await signUp(email, password, name);
     if (result.error) {
-      setError(result.error);
+      setError(result.error.message || String(result.error));
     } else {
-      router.replace('/(auth)/invite');
+      // Show confirmation message
+      setShowConfirmation(true);
     }
   };
+
+  if (showConfirmation) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.confirmationContainer}>
+          <View style={styles.logoRow}>
+            <View style={styles.logoCircles}>
+              <LinearGradient colors={[colors.coral, colors.coralLight]} style={[styles.circle, styles.circleLeft]} />
+              <LinearGradient colors={[colors.purple, colors.purpleLight]} style={[styles.circle, styles.circleRight]} />
+            </View>
+            <Text style={styles.logoText}>Better Half</Text>
+          </View>
+          
+          <Text style={styles.confirmTitle}>Check Your Email! 📧</Text>
+          <Text style={styles.confirmText}>
+            We've sent a confirmation link to{'\n'}
+            <Text style={styles.emailText}>{email}</Text>
+          </Text>
+          <Text style={styles.confirmSubtext}>
+            Click the link in your email to activate your account, then come back and sign in.
+          </Text>
+          
+          <View style={styles.buttonContainer}>
+            <Button
+              title="Go to Sign In"
+              onPress={() => router.replace('/(auth)/signin')}
+              fullWidth
+            />
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -111,10 +152,41 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 32,
   },
+  confirmationContainer: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    alignItems: 'center',
+  },
+  confirmTitle: {
+    fontFamily: fontFamilies.display,
+    fontSize: 28,
+    color: colors.textPrimary,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  confirmText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 24,
+  },
+  emailText: {
+    color: colors.purpleLight,
+    fontFamily: fontFamilies.medium,
+  },
+  confirmSubtext: {
+    ...typography.bodySmall,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginBottom: 40,
+    paddingHorizontal: 20,
+  },
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 48,
   },
   logoCircles: {
     width: 40,
