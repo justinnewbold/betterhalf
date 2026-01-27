@@ -1,29 +1,20 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
-import { Session, User } from '@supabase/supabase-js';
+import { supabase, TABLES } from '../lib/supabase';
+import type { Tables } from '../lib/supabase';
+
+type User = Tables['users'];
 
 interface AuthState {
   user: User | null;
-  session: Session | null;
+  session: any | null;
   isLoading: boolean;
   isInitialized: boolean;
-  couple: {
-    id: string;
-    partnerId: string | null;
-    partnerName: string | null;
-    inviteCode: string;
-    status: string;
-  } | null;
   
-  // Actions
   initialize: () => Promise<void>;
-  signUp: (email: string, password: string, displayName: string) => Promise<{ error: string | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, displayName: string) => Promise<{ error: any }>;
+  signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
-  setSession: (session: Session | null) => void;
-  fetchCouple: () => Promise<void>;
-  createInviteCode: () => Promise<string | null>;
-  joinWithCode: (code: string) => Promise<{ error: string | null }>;
+  updateProfile: (updates: Partial<User>) => Promise<{ error: any }>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -31,181 +22,127 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   isLoading: true,
   isInitialized: false,
-  couple: null,
 
   initialize: async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      set({ session, user: session?.user ?? null, isLoading: false, isInitialized: true });
-      
-      if (session?.user) {
-        await get().fetchCouple();
+      if (!supabase) {
+        set({ isLoading: false, isInitialized: true });
+        return;
       }
       
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from(TABLES.users)
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        set({ 
+          session, 
+          user: profile,
+          isLoading: false,
+          isInitialized: true 
+        });
+      } else {
+        set({ isLoading: false, isInitialized: true });
+      }
+
       // Listen for auth changes
       supabase.auth.onAuthStateChange(async (event, session) => {
-        set({ session, user: session?.user ?? null });
         if (session?.user) {
-          await get().fetchCouple();
+          const { data: profile } = await supabase
+            .from(TABLES.users)
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          set({ session, user: profile });
         } else {
-          set({ couple: null });
+          set({ session: null, user: null });
         }
       });
     } catch (error) {
+      console.error('Auth initialization error:', error);
       set({ isLoading: false, isInitialized: true });
     }
   },
 
   signUp: async (email, password, displayName) => {
-    set({ isLoading: true });
     try {
+      if (!supabase) return { error: { message: 'Supabase not configured' } };
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: { display_name: displayName }
-        }
       });
-      
-      if (error) {
-        set({ isLoading: false });
-        return { error: error.message };
-      }
-      
-      // Create user profile
+
+      if (error) return { error };
+
       if (data.user) {
-        await supabase.from('users').insert({
-          id: data.user.id,
-          email: data.user.email,
-          display_name: displayName,
-        });
+        // Create user profile
+        const { error: profileError } = await supabase
+          .from(TABLES.users)
+          .insert({
+            id: data.user.id,
+            email: data.user.email!,
+            display_name: displayName,
+          });
+
+        if (profileError) return { error: profileError };
       }
-      
-      set({ isLoading: false });
+
       return { error: null };
-    } catch (err: any) {
-      set({ isLoading: false });
-      return { error: err.message || 'Sign up failed' };
+    } catch (error) {
+      return { error };
     }
   },
 
   signIn: async (email, password) => {
-    set({ isLoading: true });
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      set({ isLoading: false });
-      return { error: error?.message || null };
-    } catch (err: any) {
-      set({ isLoading: false });
-      return { error: err.message || 'Sign in failed' };
+      if (!supabase) return { error: { message: 'Supabase not configured' } };
+      
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      return { error };
+    } catch (error) {
+      return { error };
     }
   },
 
   signOut: async () => {
-    await supabase.auth.signOut();
-    set({ user: null, session: null, couple: null });
-  },
-
-  setSession: (session) => {
-    set({ session, user: session?.user ?? null });
-  },
-
-  fetchCouple: async () => {
-    const { user } = get();
-    if (!user) return;
-
-    const { data } = await supabase
-      .from('couples')
-      .select('*, partner_a:users!partner_a_id(display_name), partner_b:users!partner_b_id(display_name)')
-      .or(`partner_a_id.eq.${user.id},partner_b_id.eq.${user.id}`)
-      .single();
-
-    if (data) {
-      const isPartnerA = data.partner_a_id === user.id;
-      set({
-        couple: {
-          id: data.id,
-          partnerId: isPartnerA ? data.partner_b_id : data.partner_a_id,
-          partnerName: isPartnerA 
-            ? (data.partner_b as any)?.display_name 
-            : (data.partner_a as any)?.display_name,
-          inviteCode: data.invite_code,
-          status: data.status,
-        }
-      });
+    try {
+      if (!supabase) return;
+      await supabase.auth.signOut();
+      set({ user: null, session: null });
+    } catch (error) {
+      console.error('Sign out error:', error);
     }
   },
 
-  createInviteCode: async () => {
-    const { user } = get();
-    if (!user) return null;
+  updateProfile: async (updates) => {
+    try {
+      if (!supabase) return { error: { message: 'Supabase not configured' } };
+      
+      const { user } = get();
+      if (!user) return { error: { message: 'No user logged in' } };
 
-    // Generate 6-char code
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    
-    const { data, error } = await supabase
-      .from('couples')
-      .insert({
-        partner_a_id: user.id,
-        invite_code: code,
-        status: 'pending'
-      })
-      .select()
-      .single();
+      const { error } = await supabase
+        .from(TABLES.users)
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
 
-    if (error) {
-      console.error('Error creating invite:', error);
-      return null;
-    }
-
-    set({
-      couple: {
-        id: data.id,
-        partnerId: null,
-        partnerName: null,
-        inviteCode: code,
-        status: 'pending'
+      if (!error) {
+        set({ user: { ...user, ...updates } });
       }
-    });
 
-    return code;
-  },
-
-  joinWithCode: async (code) => {
-    const { user } = get();
-    if (!user) return { error: 'Not logged in' };
-
-    // Find couple with this code
-    const { data: coupleData, error: findError } = await supabase
-      .from('couples')
-      .select('*')
-      .eq('invite_code', code.toUpperCase())
-      .eq('status', 'pending')
-      .single();
-
-    if (findError || !coupleData) {
-      return { error: 'Invalid or expired invite code' };
+      return { error };
+    } catch (error) {
+      return { error };
     }
-
-    if (coupleData.partner_a_id === user.id) {
-      return { error: 'You cannot join your own couple' };
-    }
-
-    // Join the couple
-    const { error: updateError } = await supabase
-      .from('couples')
-      .update({
-        partner_b_id: user.id,
-        status: 'active',
-        paired_at: new Date().toISOString()
-      })
-      .eq('id', coupleData.id);
-
-    if (updateError) {
-      return { error: 'Failed to join couple' };
-    }
-
-    await get().fetchCouple();
-    return { error: null };
   },
 }));
