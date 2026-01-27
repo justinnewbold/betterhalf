@@ -11,7 +11,7 @@ import { colors } from '../../constants/colors';
 import { typography, fontFamilies } from '../../constants/typography';
 
 export default function Invite() {
-  const { session, signOut } = useAuthStore();
+  const { session, user, signOut } = useAuthStore();
   const { couple, isLoading, fetchCouple, createCouple, joinCouple } = useCoupleStore();
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [code, setCode] = useState('');
@@ -42,7 +42,12 @@ export default function Invite() {
     
     setActionLoading(true);
     setError('');
-    const result = await createCouple(session.user.id);
+    
+    // Pass email and display_name to ensure user exists in betterhalf_users
+    const email = session.user.email || '';
+    const displayName = user?.display_name || session.user.user_metadata?.display_name || email.split('@')[0];
+    
+    const result = await createCouple(session.user.id, email, displayName);
     setActionLoading(false);
     
     if (result.error) {
