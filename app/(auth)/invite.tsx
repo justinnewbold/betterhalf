@@ -1,25 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Share, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Share, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useAuthStore } from '../../stores/authStore';
+import { useCoupleStore } from '../../stores/coupleStore';
 import { colors } from '../../constants/colors';
 import { typography, fontFamilies } from '../../constants/typography';
 
 export default function Invite() {
-  const { couple, createInviteCode, joinWithCode, fetchCouple } = useAuthStore();
+  const { session, signOut } = useAuthStore();
+  const { couple, isLoading, fetchCouple, createCouple, joinCouple } = useCoupleStore();
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
     // Check if we already have a couple
-    fetchCouple();
-  }, []);
+    const loadCouple = async () => {
+      if (session?.user?.id) {
+        await fetchCouple(session.user.id);
+      }
+      setInitialLoading(false);
+    };
+    loadCouple();
+  }, [session?.user?.id]);
 
   useEffect(() => {
     // If couple is active, redirect to main
@@ -29,18 +38,22 @@ export default function Invite() {
   }, [couple]);
 
   const handleCreateCode = async () => {
-    setLoading(true);
-    const inviteCode = await createInviteCode();
-    setLoading(false);
-    if (inviteCode) {
-      setCode(inviteCode);
+    if (!session?.user?.id) return;
+    
+    setActionLoading(true);
+    setError('');
+    const result = await createCouple(session.user.id);
+    setActionLoading(false);
+    
+    if (result.error) {
+      setError(result.error.message || 'Failed to create invite code');
     }
   };
 
   const handleShareCode = async () => {
-    if (couple?.inviteCode) {
+    if (couple?.invite_code) {
       await Share.share({
-        message: `Join me on Better Half! Use my invite code: ${couple.inviteCode}\n\nDownload the app and enter this code to connect with me.`,
+        message: `Join me on Better Half! Use my invite code: ${couple.invite_code}\n\nDownload the app and enter this code to connect with me.`,
       });
     }
   };
@@ -50,18 +63,35 @@ export default function Invite() {
       setError('Please enter an invite code');
       return;
     }
+    
+    if (!session?.user?.id) return;
 
-    setLoading(true);
+    setActionLoading(true);
     setError('');
-    const result = await joinWithCode(code.toUpperCase());
-    setLoading(false);
+    const result = await joinCouple(session.user.id, code.toUpperCase());
+    setActionLoading(false);
 
     if (result.error) {
-      setError(result.error);
-    } else {
-      router.replace('/(main)/(tabs)');
+      setError(result.error.message || 'Invalid or expired code');
     }
+    // If successful, the useEffect watching couple will redirect
   };
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.replace('/(auth)/welcome');
+  };
+
+  if (initialLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.purple} />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -78,7 +108,7 @@ export default function Invite() {
         <View style={styles.toggleContainer}>
           <TouchableOpacity
             style={[styles.toggleButton, mode === 'create' && styles.toggleActive]}
-            onPress={() => setMode('create')}
+            onPress={() => { setMode('create'); setError(''); }}
           >
             <Text style={[styles.toggleText, mode === 'create' && styles.toggleTextActive]}>
               Invite Partner
@@ -86,7 +116,7 @@ export default function Invite() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.toggleButton, mode === 'join' && styles.toggleActive]}
-            onPress={() => setMode('join')}
+            onPress={() => { setMode('join'); setError(''); }}
           >
             <Text style={[styles.toggleText, mode === 'join' && styles.toggleTextActive]}>
               Enter Code
@@ -99,22 +129,26 @@ export default function Invite() {
             <Text style={styles.title}>Invite Your Partner</Text>
             <Text style={styles.subtitle}>Share this code with your better half</Text>
 
-            {couple?.inviteCode ? (
+            {couple?.invite_code ? (
               <>
                 <View style={styles.codeBox}>
                   <Text style={styles.codeLabel}>YOUR INVITE CODE</Text>
-                  <Text style={styles.codeValue}>{couple.inviteCode}</Text>
+                  <Text style={styles.codeValue}>{couple.invite_code}</Text>
                 </View>
 
                 <Button title="📤 Share Code" onPress={handleShareCode} fullWidth />
               </>
             ) : (
-              <Button
-                title="Generate Invite Code"
-                onPress={handleCreateCode}
-                loading={loading}
-                fullWidth
-              />
+              <>
+                {error ? <Text style={styles.error}>{error}</Text> : null}
+                <Button
+                  title="Generate Invite Code"
+                  onPress={handleCreateCode}
+                  loading={actionLoading}
+                  disabled={actionLoading}
+                  fullWidth
+                />
+              </>
             )}
           </>
         ) : (
@@ -125,7 +159,7 @@ export default function Invite() {
             <Input
               placeholder="Enter 6-digit code"
               value={code}
-              onChangeText={setCode}
+              onChangeText={(text) => { setCode(text); setError(''); }}
               autoCapitalize="characters"
               maxLength={6}
               style={styles.codeInput}
@@ -136,7 +170,8 @@ export default function Invite() {
             <Button
               title="Join"
               onPress={handleJoinWithCode}
-              loading={loading}
+              loading={actionLoading}
+              disabled={actionLoading}
               fullWidth
             />
           </>
@@ -146,10 +181,7 @@ export default function Invite() {
 
         <Button
           title="Sign Out"
-          onPress={() => {
-            useAuthStore.getState().signOut();
-            router.replace('/(auth)/welcome');
-          }}
+          onPress={handleSignOut}
           variant="ghost"
         />
       </View>
@@ -161,6 +193,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.darkBg,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    ...typography.body,
+    color: colors.textMuted,
+    marginTop: 16,
   },
   content: {
     flex: 1,
