@@ -57,7 +57,6 @@ export const getSupabase = (): SupabaseClient => {
 };
 
 // For backward compatibility - creates client only when env vars are present
-// Uses a placeholder during build time to avoid errors
 export const supabase = supabaseUrl && supabaseAnonKey 
   ? createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
@@ -68,6 +67,19 @@ export const supabase = supabaseUrl && supabaseAnonKey
       },
     })
   : null as unknown as SupabaseClient;
+
+// Table names with prefix for isolation
+export const TABLES = {
+  users: 'betterhalf_users',
+  couples: 'betterhalf_couples',
+  questions: 'betterhalf_questions',
+  game_sessions: 'betterhalf_game_sessions',
+  answers: 'betterhalf_answers',
+  streaks: 'betterhalf_streaks',
+  achievements: 'betterhalf_achievements',
+  user_achievements: 'betterhalf_user_achievements',
+  couple_stats: 'betterhalf_couple_stats',
+} as const;
 
 // Helper types
 export type Tables = {
@@ -116,5 +128,37 @@ export type Tables = {
     user_id: string;
     selected_option: number;
     answered_at: string;
+  };
+  streaks: {
+    id: string;
+    couple_id: string;
+    current_streak: number;
+    longest_streak: number;
+    last_played_at: string | null;
+    updated_at: string;
+  };
+  achievements: {
+    id: string;
+    name: string;
+    description: string | null;
+    icon: string | null;
+    requirement_type: string;
+    requirement_value: number;
+  };
+  user_achievements: {
+    id: string;
+    user_id: string;
+    achievement_id: string;
+    unlocked_at: string;
+  };
+  couple_stats: {
+    id: string;
+    couple_id: string;
+    total_games: number;
+    total_matches: number;
+    total_questions: number;
+    sync_score: number;
+    favorite_category: string | null;
+    updated_at: string;
   };
 };
