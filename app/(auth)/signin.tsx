@@ -10,10 +10,11 @@ import { colors } from '../../constants/colors';
 import { typography, fontFamilies } from '../../constants/typography';
 
 export default function SignIn() {
-  const { signIn, isLoading } = useAuthStore();
+  const { signIn } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSignIn = async () => {
     if (!email.trim() || !password.trim()) {
@@ -22,14 +23,23 @@ export default function SignIn() {
     }
 
     setError('');
-    const result = await signIn(email, password);
-    if (result.error) {
-      setError(result.error.message || String(result.error));
-    } else {
-      // Small delay to allow auth state to update
-      setTimeout(() => {
-        router.replace('/');
-      }, 500);
+    setLoading(true);
+    
+    try {
+      const result = await signIn(email, password);
+      if (result.error) {
+        setError(result.error.message || String(result.error));
+        setLoading(false);
+      } else {
+        // Auth state change will trigger redirect via index.tsx
+        // Give it a moment then redirect
+        setTimeout(() => {
+          router.replace('/');
+        }, 300);
+      }
+    } catch (e) {
+      setError('Sign in failed. Please try again.');
+      setLoading(false);
     }
   };
 
@@ -77,7 +87,7 @@ export default function SignIn() {
             <Button
               title="Sign In"
               onPress={handleSignIn}
-              loading={isLoading}
+              loading={loading}
               fullWidth
             />
 
