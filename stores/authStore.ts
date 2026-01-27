@@ -9,6 +9,7 @@ interface AuthState {
   session: any | null;
   isLoading: boolean;
   isInitialized: boolean;
+  error: string | null;
   
   initialize: () => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<{ error: any }>;
@@ -22,35 +23,54 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   isLoading: true,
   isInitialized: false,
+  error: null,
 
   initialize: async () => {
+    console.log('[AuthStore] Initializing...');
     try {
       if (!supabase) {
-        set({ isLoading: false, isInitialized: true });
+        console.warn('[AuthStore] No Supabase client - running without auth');
+        set({ isLoading: false, isInitialized: true, error: 'Supabase not configured' });
         return;
       }
       
-      const { data: { session } } = await supabase.auth.getSession();
+      console.log('[AuthStore] Getting session...');
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('[AuthStore] Session error:', sessionError);
+        set({ isLoading: false, isInitialized: true, error: sessionError.message });
+        return;
+      }
+      
+      console.log('[AuthStore] Session:', session ? 'Found' : 'None');
       
       if (session?.user) {
-        const { data: profile } = await supabase
+        console.log('[AuthStore] Fetching profile for:', session.user.id);
+        const { data: profile, error: profileError } = await supabase
           .from(TABLES.users)
           .select('*')
           .eq('id', session.user.id)
           .single();
         
+        if (profileError) {
+          console.warn('[AuthStore] Profile error (may not exist yet):', profileError);
+        }
+        
         set({ 
           session, 
-          user: profile,
+          user: profile || null,
           isLoading: false,
           isInitialized: true 
         });
       } else {
+        console.log('[AuthStore] No session, setting initialized');
         set({ isLoading: false, isInitialized: true });
       }
 
       // Listen for auth changes
       supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('[AuthStore] Auth state changed:', event);
         if (session?.user) {
           const { data: profile } = await supabase
             .from(TABLES.users)
@@ -58,14 +78,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             .eq('id', session.user.id)
             .single();
           
-          set({ session, user: profile });
+          set({ session, user: profile || null });
         } else {
           set({ session: null, user: null });
         }
       });
     } catch (error) {
-      console.error('Auth initialization error:', error);
-      set({ isLoading: false, isInitialized: true });
+      console.error('[AuthStore] Initialization error:', error);
+      set({ isLoading: false, isInitialized: true, error: String(error) });
     }
   },
 
