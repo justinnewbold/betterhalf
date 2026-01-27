@@ -6,17 +6,17 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { colors } from '../constants/colors';
 
 export default function Index() {
-  const { session, isLoading: authLoading } = useAuthStore();
-  const { couple, isLoading: coupleLoading, fetchCouple } = useCoupleStore();
+  const { session, isLoading: authLoading, isInitialized } = useAuthStore();
+  const { couple, isLoading: coupleLoading, hasFetched, fetchCouple } = useCoupleStore();
 
   useEffect(() => {
-    if (session?.user?.id) {
+    if (session?.user?.id && !hasFetched) {
       fetchCouple(session.user.id);
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, hasFetched]);
 
-  // Still loading auth
-  if (authLoading) {
+  // Still initializing auth
+  if (!isInitialized || authLoading) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={colors.purple} />
@@ -29,8 +29,8 @@ export default function Index() {
     return <Redirect href="/(auth)/welcome" />;
   }
 
-  // Loading couple data
-  if (coupleLoading) {
+  // Loading couple data (only show loading if we haven't fetched yet)
+  if (coupleLoading || !hasFetched) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={colors.purple} />
