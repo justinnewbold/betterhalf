@@ -10,11 +10,12 @@ import { colors } from '../../constants/colors';
 import { typography, fontFamilies } from '../../constants/typography';
 
 export default function SignUp() {
-  const { signUp, isLoading } = useAuthStore();
+  const { signUp } = useAuthStore();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   const handleSignUp = async () => {
@@ -29,15 +30,25 @@ export default function SignUp() {
     }
 
     setError('');
-    const result = await signUp(email, password, name);
-    if (result.error) {
-      setError(result.error.message || String(result.error));
-    } else {
-      // Show confirmation message
-      setShowConfirmation(true);
+    setLoading(true);
+    
+    try {
+      const result = await signUp(email, password, name);
+      setLoading(false);
+      
+      if (result.error) {
+        setError(result.error.message || String(result.error));
+      } else {
+        // Show email confirmation screen
+        setShowConfirmation(true);
+      }
+    } catch (e) {
+      setError('Sign up failed. Please try again.');
+      setLoading(false);
     }
   };
 
+  // Email confirmation screen
   if (showConfirmation) {
     return (
       <SafeAreaView style={styles.container}>
@@ -52,11 +63,11 @@ export default function SignUp() {
           
           <Text style={styles.confirmTitle}>Check Your Email! 📧</Text>
           <Text style={styles.confirmText}>
-            We've sent a confirmation link to{'\n'}
+            We sent a confirmation link to{'\n'}
             <Text style={styles.emailText}>{email}</Text>
           </Text>
           <Text style={styles.confirmSubtext}>
-            Click the link in your email to activate your account, then come back and sign in.
+            Click the link in your email to activate your account, then come back here and sign in.
           </Text>
           
           <View style={styles.buttonContainer}>
@@ -121,7 +132,7 @@ export default function SignUp() {
             <Button
               title="Create Account"
               onPress={handleSignUp}
-              loading={isLoading}
+              loading={loading}
               fullWidth
             />
 
@@ -232,6 +243,7 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     marginTop: 24,
+    width: '100%',
   },
   loginLink: {
     ...typography.bodySmall,
