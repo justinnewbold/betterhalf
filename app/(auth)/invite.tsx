@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Share, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '../../components/ui/Button';
@@ -10,37 +10,20 @@ import { useCoupleStore } from '../../stores/coupleStore';
 import { colors } from '../../constants/colors';
 import { typography, fontFamilies } from '../../constants/typography';
 
-const APP_URL = 'https://betterhalf.newbold.cloud';
-
 export default function Invite() {
-  const { session, user, signOut } = useAuthStore();
-  const { couple, isLoading, fetchCouple, createCouple, joinCouple } = useCoupleStore();
-  const params = useLocalSearchParams<{ code?: string }>();
-  
+  const { session, signOut } = useAuthStore();
+  const { couple, isLoading, hasFetched, fetchCouple, createCouple, joinCouple } = useCoupleStore();
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
 
-  // Check for invite code in URL params
   useEffect(() => {
-    if (params.code) {
-      setCode(params.code.toUpperCase());
-      setMode('join');
+    // Fetch couple if not already fetched
+    if (session?.user?.id && !hasFetched) {
+      fetchCouple(session.user.id);
     }
-  }, [params.code]);
-
-  useEffect(() => {
-    // Check if we already have a couple
-    const loadCouple = async () => {
-      if (session?.user?.id) {
-        await fetchCouple(session.user.id);
-      }
-      setInitialLoading(false);
-    };
-    loadCouple();
-  }, [session?.user?.id]);
+  }, [session?.user?.id, hasFetched]);
 
   useEffect(() => {
     // If couple is active, redirect to main
@@ -54,12 +37,7 @@ export default function Invite() {
     
     setActionLoading(true);
     setError('');
-    
-    // Pass email and display_name to ensure user exists in betterhalf_users
-    const email = session.user.email || '';
-    const displayName = user?.display_name || session.user.user_metadata?.display_name || email.split('@')[0];
-    
-    const result = await createCouple(session.user.id, email, displayName);
+    const result = await createCouple(session.user.id);
     setActionLoading(false);
     
     if (result.error) {
@@ -69,9 +47,8 @@ export default function Invite() {
 
   const handleShareCode = async () => {
     if (couple?.invite_code) {
-      const inviteLink = `${APP_URL}/invite?code=${couple.invite_code}`;
       await Share.share({
-        message: `Join me on Better Half! 💕\n\nClick this link to connect with me:\n${inviteLink}\n\nOr enter code: ${couple.invite_code}`,
+        message: `Join me on Better Half! Use my invite code: ${couple.invite_code}\n\nDownload the app and enter this code to connect with me.`,
       });
     }
   };
@@ -96,11 +73,15 @@ export default function Invite() {
   };
 
   const handleSignOut = async () => {
+    // Reset couple store before signing out
+    const coupleStore = useCoupleStore.getState();
+    coupleStore.reset();
     await signOut();
     router.replace('/(auth)/welcome');
   };
 
-  if (initialLoading) {
+  // Show loading while fetching couple data
+  if (isLoading || !hasFetched) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
@@ -160,7 +141,7 @@ export default function Invite() {
               <>
                 {error ? <Text style={styles.error}>{error}</Text> : null}
                 <Button
-                  title="Generate Invite Code"
+                  title={actionLoading ? "Creating..." : "Generate Invite Code"}
                   onPress={handleCreateCode}
                   loading={actionLoading}
                   disabled={actionLoading}
@@ -177,7 +158,7 @@ export default function Invite() {
             <Input
               placeholder="Enter 6-digit code"
               value={code}
-              onChangeText={(text) => { setCode(text.toUpperCase()); setError(''); }}
+              onChangeText={(text) => { setCode(text); setError(''); }}
               autoCapitalize="characters"
               maxLength={6}
               style={styles.codeInput}
@@ -186,7 +167,7 @@ export default function Invite() {
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
             <Button
-              title="Join"
+              title={actionLoading ? "Joining..." : "Join"}
               onPress={handleJoinWithCode}
               loading={actionLoading}
               disabled={actionLoading}
