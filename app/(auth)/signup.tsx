@@ -42,8 +42,8 @@ export default function SignUp() {
         // Show email confirmation screen
         setShowConfirmation(true);
       }
-    } catch (e) {
-      setError('Sign up failed. Please try again.');
+    } catch (e: any) {
+      setError(e?.message || 'Sign up failed. Please try again.');
       setLoading(false);
     }
   };
@@ -53,24 +53,23 @@ export default function SignUp() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.confirmationContainer}>
-          <View style={styles.logoRow}>
+          <View style={styles.logoRowCenter}>
             <View style={styles.logoCircles}>
               <LinearGradient colors={[colors.coral, colors.coralLight]} style={[styles.circle, styles.circleLeft]} />
               <LinearGradient colors={[colors.purple, colors.purpleLight]} style={[styles.circle, styles.circleRight]} />
             </View>
-            <Text style={styles.logoText}>Better Half</Text>
           </View>
           
           <Text style={styles.confirmTitle}>Check Your Email! 📧</Text>
           <Text style={styles.confirmText}>
-            We sent a confirmation link to{'\n'}
-            <Text style={styles.emailText}>{email}</Text>
+            We sent a confirmation link to
           </Text>
+          <Text style={styles.emailText}>{email}</Text>
           <Text style={styles.confirmSubtext}>
             Click the link in your email to activate your account, then come back here and sign in.
           </Text>
           
-          <View style={styles.buttonContainer}>
+          <View style={styles.confirmButtonContainer}>
             <Button
               title="Go to Sign In"
               onPress={() => router.replace('/(auth)/signin')}
@@ -118,7 +117,7 @@ export default function SignUp() {
               keyboardType="email-address"
             />
             <Input
-              placeholder="Password"
+              placeholder="Password (min 6 characters)"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -130,9 +129,10 @@ export default function SignUp() {
           {/* Button */}
           <View style={styles.buttonContainer}>
             <Button
-              title="Create Account"
+              title={loading ? "Creating account..." : "Create Account"}
               onPress={handleSignUp}
               loading={loading}
+              disabled={loading}
               fullWidth
             />
 
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   confirmationContainer: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingTop: 80,
     alignItems: 'center',
   },
   confirmTitle: {
@@ -174,18 +174,21 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: colors.textPrimary,
     marginBottom: 16,
+    marginTop: 32,
     textAlign: 'center',
   },
   confirmText: {
     ...typography.body,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 12,
-    lineHeight: 24,
+    marginBottom: 8,
   },
   emailText: {
+    ...typography.body,
     color: colors.purpleLight,
-    fontFamily: fontFamilies.medium,
+    fontFamily: fontFamilies.semiBold,
+    textAlign: 'center',
+    marginBottom: 16,
   },
   confirmSubtext: {
     ...typography.bodySmall,
@@ -193,34 +196,45 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 40,
     paddingHorizontal: 20,
+    lineHeight: 20,
+  },
+  confirmButtonContainer: {
+    width: '100%',
+    marginTop: 20,
   },
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 32,
+  },
+  logoRowCenter: {
+    alignItems: 'center',
+    marginBottom: 16,
   },
   logoCircles: {
-    width: 40,
-    height: 30,
+    width: 60,
+    height: 40,
     position: 'relative',
-    marginRight: 10,
   },
   circle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     position: 'absolute',
   },
   circleLeft: {
     left: 0,
+    top: 4,
   },
   circleRight: {
     right: 0,
+    top: 4,
   },
   logoText: {
     fontFamily: fontFamilies.display,
     fontSize: 18,
     color: colors.textPrimary,
+    marginLeft: 8,
   },
   title: {
     fontFamily: fontFamilies.display,
@@ -243,7 +257,6 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     marginTop: 24,
-    width: '100%',
   },
   loginLink: {
     ...typography.bodySmall,
