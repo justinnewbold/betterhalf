@@ -8,36 +8,61 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 console.log('[Supabase] URL configured:', !!supabaseUrl);
 console.log('[Supabase] Key configured:', !!supabaseAnonKey);
 
-// Simple web-compatible storage
-const WebStorageAdapter = {
-  getItem: async (key: string): Promise<string | null> => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        return window.localStorage.getItem(key);
+// Storage key for session
+const STORAGE_KEY = 'betterhalf-auth-token';
+
+// Robust localStorage wrapper that handles all edge cases
+const createWebStorage = () => {
+  // Check if we're in a browser environment with localStorage
+  const hasLocalStorage = typeof window !== 'undefined' && 
+    typeof window.localStorage !== 'undefined';
+  
+  if (!hasLocalStorage) {
+    console.log('[Supabase] localStorage not available, using memory storage');
+    // Fallback to in-memory storage for SSR/build time
+    const memoryStore: Record<string, string> = {};
+    return {
+      getItem: async (key: string): Promise<string | null> => {
+        return memoryStore[key] || null;
+      },
+      setItem: async (key: string, value: string): Promise<void> => {
+        memoryStore[key] = value;
+      },
+      removeItem: async (key: string): Promise<void> => {
+        delete memoryStore[key];
+      },
+    };
+  }
+
+  console.log('[Supabase] Using localStorage for session persistence');
+  return {
+    getItem: async (key: string): Promise<string | null> => {
+      try {
+        const value = window.localStorage.getItem(key);
+        console.log('[Supabase Storage] getItem:', key, value ? 'found' : 'not found');
+        return value;
+      } catch (error) {
+        console.error('[Supabase Storage] getItem error:', error);
+        return null;
       }
-      return null;
-    } catch {
-      return null;
-    }
-  },
-  setItem: async (key: string, value: string): Promise<void> => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
+    },
+    setItem: async (key: string, value: string): Promise<void> => {
+      try {
         window.localStorage.setItem(key, value);
+        console.log('[Supabase Storage] setItem:', key, 'saved');
+      } catch (error) {
+        console.error('[Supabase Storage] setItem error:', error);
       }
-    } catch {
-      // Ignore storage errors
-    }
-  },
-  removeItem: async (key: string): Promise<void> => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
+    },
+    removeItem: async (key: string): Promise<void> => {
+      try {
         window.localStorage.removeItem(key);
+        console.log('[Supabase Storage] removeItem:', key);
+      } catch (error) {
+        console.error('[Supabase Storage] removeItem error:', error);
       }
-    } catch {
-      // Ignore storage errors
-    }
-  },
+    },
+  };
 };
 
 // Create client with proper configuration
@@ -50,16 +75,19 @@ const createSupabaseClient = (): SupabaseClient | null => {
   }
   
   try {
+    const storage = createWebStorage();
+    
     const client = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        storage: WebStorageAdapter,
+        storage: storage,
+        storageKey: STORAGE_KEY,
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: Platform.OS === 'web',
         flowType: 'pkce',
       },
     });
-    console.log('[Supabase] Client created successfully');
+    console.log('[Supabase] Client created successfully with persistent storage');
     return client;
   } catch (error) {
     console.error('[Supabase] Failed to create client:', error);
