@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useAuthStore } from '../../stores/authStore';
+import { useCoupleStore } from '../../stores/coupleStore';
 import { colors } from '../../constants/colors';
 import { typography, fontFamilies } from '../../constants/typography';
 
 export default function SignIn() {
   const { signIn } = useAuthStore();
+  const { fetchCouple } = useCoupleStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -27,18 +29,17 @@ export default function SignIn() {
     
     try {
       const result = await signIn(email, password);
+      
       if (result.error) {
         setError(result.error.message || String(result.error));
         setLoading(false);
-      } else {
-        // Auth state change will trigger redirect via index.tsx
-        // Give it a moment then redirect
-        setTimeout(() => {
-          router.replace('/');
-        }, 300);
+        return;
       }
-    } catch (e) {
-      setError('Sign in failed. Please try again.');
+      
+      // Success! Navigate to invite screen (it will redirect to main if coupled)
+      router.replace('/(auth)/invite');
+    } catch (e: any) {
+      setError(e?.message || 'Sign in failed. Please try again.');
       setLoading(false);
     }
   };
@@ -85,9 +86,10 @@ export default function SignIn() {
           {/* Button */}
           <View style={styles.buttonContainer}>
             <Button
-              title="Sign In"
+              title={loading ? "Signing in..." : "Sign In"}
               onPress={handleSignIn}
               loading={loading}
+              disabled={loading}
               fullWidth
             />
 
