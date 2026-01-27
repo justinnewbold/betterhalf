@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Share, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '../../components/ui/Button';
@@ -10,14 +10,26 @@ import { useCoupleStore } from '../../stores/coupleStore';
 import { colors } from '../../constants/colors';
 import { typography, fontFamilies } from '../../constants/typography';
 
+const APP_URL = 'https://betterhalf.newbold.cloud';
+
 export default function Invite() {
   const { session, user, signOut } = useAuthStore();
   const { couple, isLoading, fetchCouple, createCouple, joinCouple } = useCoupleStore();
+  const params = useLocalSearchParams<{ code?: string }>();
+  
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+
+  // Check for invite code in URL params
+  useEffect(() => {
+    if (params.code) {
+      setCode(params.code.toUpperCase());
+      setMode('join');
+    }
+  }, [params.code]);
 
   useEffect(() => {
     // Check if we already have a couple
@@ -57,8 +69,9 @@ export default function Invite() {
 
   const handleShareCode = async () => {
     if (couple?.invite_code) {
+      const inviteLink = `${APP_URL}/invite?code=${couple.invite_code}`;
       await Share.share({
-        message: `Join me on Better Half! Use my invite code: ${couple.invite_code}\n\nDownload the app and enter this code to connect with me.`,
+        message: `Join me on Better Half! 💕\n\nClick this link to connect with me:\n${inviteLink}\n\nOr enter code: ${couple.invite_code}`,
       });
     }
   };
@@ -164,7 +177,7 @@ export default function Invite() {
             <Input
               placeholder="Enter 6-digit code"
               value={code}
-              onChangeText={(text) => { setCode(text); setError(''); }}
+              onChangeText={(text) => { setCode(text.toUpperCase()); setError(''); }}
               autoCapitalize="characters"
               maxLength={6}
               style={styles.codeInput}
