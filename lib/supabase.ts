@@ -1,72 +1,81 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Custom storage for Supabase Auth
-const ExpoSecureStoreAdapter = {
+// Debug logging
+console.log('[Supabase] URL configured:', !!supabaseUrl);
+console.log('[Supabase] Key configured:', !!supabaseAnonKey);
+
+// Simple web-compatible storage
+const WebStorageAdapter = {
   getItem: async (key: string): Promise<string | null> => {
-    if (Platform.OS === 'web') {
-      if (typeof localStorage !== 'undefined') {
-        return localStorage.getItem(key);
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        return window.localStorage.getItem(key);
       }
       return null;
+    } catch {
+      return null;
     }
-    return SecureStore.getItemAsync(key);
   },
   setItem: async (key: string, value: string): Promise<void> => {
-    if (Platform.OS === 'web') {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(key, value);
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(key, value);
       }
-      return;
+    } catch {
+      // Ignore storage errors
     }
-    await SecureStore.setItemAsync(key, value);
   },
   removeItem: async (key: string): Promise<void> => {
-    if (Platform.OS === 'web') {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem(key);
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(key);
       }
-      return;
+    } catch {
+      // Ignore storage errors
     }
-    await SecureStore.deleteItemAsync(key);
   },
 };
 
-// Create a lazy-initialized client to avoid build-time errors
+// Create client with proper configuration
 let _supabase: SupabaseClient | null = null;
 
-export const getSupabase = (): SupabaseClient => {
-  if (!_supabase) {
-    if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error('Supabase URL and Anon Key are required. Please set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY environment variables.');
-    }
-    _supabase = createClient(supabaseUrl, supabaseAnonKey, {
+const createSupabaseClient = (): SupabaseClient | null => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('[Supabase] Missing configuration - URL or Key not set');
+    return null;
+  }
+  
+  try {
+    const client = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        storage: ExpoSecureStoreAdapter,
+        storage: WebStorageAdapter,
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: false,
+        detectSessionInUrl: Platform.OS === 'web',
+        flowType: 'pkce',
       },
     });
+    console.log('[Supabase] Client created successfully');
+    return client;
+  } catch (error) {
+    console.error('[Supabase] Failed to create client:', error);
+    return null;
+  }
+};
+
+export const getSupabase = (): SupabaseClient | null => {
+  if (!_supabase) {
+    _supabase = createSupabaseClient();
   }
   return _supabase;
 };
 
-// For backward compatibility - creates client only when env vars are present
-export const supabase = supabaseUrl && supabaseAnonKey 
-  ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        storage: ExpoSecureStoreAdapter,
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: false,
-      },
-    })
-  : null as unknown as SupabaseClient;
+// Initialize immediately for web
+export const supabase = createSupabaseClient();
 
 // Table names with prefix for isolation
 export const TABLES = {
