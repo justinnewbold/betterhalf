@@ -12,11 +12,13 @@ interface CoupleState {
   streak: Streak | null;
   partnerProfile: Tables['users'] | null;
   isLoading: boolean;
+  hasFetched: boolean;
   
   fetchCouple: (userId: string) => Promise<void>;
-  createCouple: (userId: string, email: string, displayName?: string) => Promise<{ inviteCode: string | null; error: any }>;
+  createCouple: (userId: string) => Promise<{ inviteCode: string | null; error: any }>;
   joinCouple: (userId: string, inviteCode: string) => Promise<{ error: any }>;
   updateCouple: (updates: Partial<Couple>) => Promise<{ error: any }>;
+  reset: () => void;
 }
 
 export const useCoupleStore = create<CoupleState>((set, get) => ({
@@ -25,19 +27,30 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
   streak: null,
   partnerProfile: null,
   isLoading: false,
+  hasFetched: false,
 
   fetchCouple: async (userId) => {
-    try {
-      if (!supabase) return;
-      
-      set({ isLoading: true });
+    if (!supabase || !userId) {
+      set({ isLoading: false, hasFetched: true });
+      return;
+    }
+    
+    set({ isLoading: true });
 
-      // Find couple where user is either partner
-      const { data: couple } = await supabase
+    try {
+      // Find couple where user is either partner - use maybeSingle() for optional result
+      const { data: couple, error } = await supabase
         .from(TABLES.couples)
         .select('*')
         .or(`partner_a_id.eq.${userId},partner_b_id.eq.${userId}`)
-        .single();
+        .maybeSingle();
+
+      // Handle error but not "no rows" which is expected for new users
+      if (error && error.code !== 'PGRST116') {
+        console.error('Fetch couple error:', error);
+        set({ couple: null, partnerProfile: null, stats: null, streak: null, isLoading: false, hasFetched: true });
+        return;
+      }
 
       if (couple) {
         // Get partner profile
@@ -51,7 +64,7 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
             .from(TABLES.users)
             .select('*')
             .eq('id', partnerId)
-            .single();
+            .maybeSingle();
           partnerProfile = data;
         }
 
@@ -60,54 +73,30 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
           .from(TABLES.couple_stats)
           .select('*')
           .eq('couple_id', couple.id)
-          .single();
+          .maybeSingle();
 
         // Get streak
         const { data: streak } = await supabase
           .from(TABLES.streaks)
           .select('*')
           .eq('couple_id', couple.id)
-          .single();
+          .maybeSingle();
 
-        set({ couple, partnerProfile, stats, streak, isLoading: false });
+        set({ couple, partnerProfile, stats, streak, isLoading: false, hasFetched: true });
       } else {
-        set({ couple: null, partnerProfile: null, stats: null, streak: null, isLoading: false });
+        // No couple found - this is normal for new users
+        set({ couple: null, partnerProfile: null, stats: null, streak: null, isLoading: false, hasFetched: true });
       }
     } catch (error) {
       console.error('Fetch couple error:', error);
-      set({ isLoading: false });
+      set({ couple: null, isLoading: false, hasFetched: true });
     }
   },
 
-  createCouple: async (userId, email, displayName) => {
+  createCouple: async (userId) => {
+    if (!supabase) return { inviteCode: null, error: { message: 'Supabase not configured' } };
+    
     try {
-      if (!supabase) return { inviteCode: null, error: { message: 'Supabase not configured' } };
-      
-      // First, ensure user exists in betterhalf_users
-      const { data: existingUser, error: checkError } = await supabase
-        .from(TABLES.users)
-        .select('id')
-        .eq('id', userId)
-        .single();
-
-      if (!existingUser) {
-        console.log('[CoupleStore] User not in betterhalf_users, creating...');
-        // Create the user profile first
-        const { error: userError } = await supabase
-          .from(TABLES.users)
-          .upsert({
-            id: userId,
-            email: email,
-            display_name: displayName || email.split('@')[0],
-          }, { onConflict: 'id' });
-
-        if (userError) {
-          console.error('[CoupleStore] Failed to create user:', userError);
-          return { inviteCode: null, error: userError };
-        }
-      }
-
-      // Now create the couple
       const { data, error } = await supabase
         .from(TABLES.couples)
         .insert({
@@ -136,9 +125,9 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
   },
 
   joinCouple: async (userId, inviteCode) => {
+    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    
     try {
-      if (!supabase) return { error: { message: 'Supabase not configured' } };
-      
       // Find couple with invite code
       const { data: couple, error: findError } = await supabase
         .from(TABLES.couples)
@@ -146,7 +135,7 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
         .eq('invite_code', inviteCode.toUpperCase())
         .eq('status', 'pending')
         .is('partner_b_id', null)
-        .single();
+        .maybeSingle();
 
       if (findError || !couple) {
         return { error: { message: 'Invalid or expired invite code' } };
@@ -173,12 +162,12 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
   },
 
   updateCouple: async (updates) => {
-    try {
-      if (!supabase) return { error: { message: 'Supabase not configured' } };
-      
-      const { couple } = get();
-      if (!couple) return { error: { message: 'No couple found' } };
+    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    
+    const { couple } = get();
+    if (!couple) return { error: { message: 'No couple found' } };
 
+    try {
       const { error } = await supabase
         .from(TABLES.couples)
         .update(updates)
@@ -192,5 +181,9 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
     } catch (error) {
       return { error };
     }
+  },
+
+  reset: () => {
+    set({ couple: null, stats: null, streak: null, partnerProfile: null, isLoading: false, hasFetched: false });
   },
 }));
