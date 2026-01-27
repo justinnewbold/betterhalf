@@ -14,7 +14,7 @@ interface CoupleState {
   isLoading: boolean;
   
   fetchCouple: (userId: string) => Promise<void>;
-  createCouple: (userId: string) => Promise<{ inviteCode: string | null; error: any }>;
+  createCouple: (userId: string, email: string, displayName?: string) => Promise<{ inviteCode: string | null; error: any }>;
   joinCouple: (userId: string, inviteCode: string) => Promise<{ error: any }>;
   updateCouple: (updates: Partial<Couple>) => Promise<{ error: any }>;
 }
@@ -79,10 +79,35 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
     }
   },
 
-  createCouple: async (userId) => {
+  createCouple: async (userId, email, displayName) => {
     try {
       if (!supabase) return { inviteCode: null, error: { message: 'Supabase not configured' } };
       
+      // First, ensure user exists in betterhalf_users
+      const { data: existingUser, error: checkError } = await supabase
+        .from(TABLES.users)
+        .select('id')
+        .eq('id', userId)
+        .single();
+
+      if (!existingUser) {
+        console.log('[CoupleStore] User not in betterhalf_users, creating...');
+        // Create the user profile first
+        const { error: userError } = await supabase
+          .from(TABLES.users)
+          .upsert({
+            id: userId,
+            email: email,
+            display_name: displayName || email.split('@')[0],
+          }, { onConflict: 'id' });
+
+        if (userError) {
+          console.error('[CoupleStore] Failed to create user:', userError);
+          return { inviteCode: null, error: userError };
+        }
+      }
+
+      // Now create the couple
       const { data, error } = await supabase
         .from(TABLES.couples)
         .insert({
