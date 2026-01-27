@@ -21,11 +21,15 @@ export default function SignIn() {
       return;
     }
 
+    setError('');
     const result = await signIn(email, password);
     if (result.error) {
-      setError(result.error);
+      setError(result.error.message || String(result.error));
     } else {
-      router.replace('/');
+      // Small delay to allow auth state to update
+      setTimeout(() => {
+        router.replace('/');
+      }, 500);
     }
   };
 
