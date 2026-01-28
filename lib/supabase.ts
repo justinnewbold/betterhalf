@@ -4,50 +4,6 @@ import { Platform } from 'react-native';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Storage key for session - must be consistent
-const STORAGE_KEY = 'sb-wektbfkzbxvtxsremnnk-auth-token';
-
-// Singleton storage instance - critical for persistence
-let _storage: ReturnType<typeof createWebStorage> | null = null;
-
-// Create storage wrapper that uses localStorage directly
-const createWebStorage = () => {
-  return {
-    getItem: (key: string): string | null => {
-      if (typeof window === 'undefined') return null;
-      try {
-        return window.localStorage.getItem(key);
-      } catch {
-        return null;
-      }
-    },
-    setItem: (key: string, value: string): void => {
-      if (typeof window === 'undefined') return;
-      try {
-        window.localStorage.setItem(key, value);
-      } catch {
-        // Ignore storage errors
-      }
-    },
-    removeItem: (key: string): void => {
-      if (typeof window === 'undefined') return;
-      try {
-        window.localStorage.removeItem(key);
-      } catch {
-        // Ignore storage errors
-      }
-    },
-  };
-};
-
-// Get or create singleton storage
-const getStorage = () => {
-  if (!_storage) {
-    _storage = createWebStorage();
-  }
-  return _storage;
-};
-
 // Singleton Supabase client
 let _supabase: SupabaseClient | null = null;
 
@@ -61,15 +17,29 @@ const createSupabaseClient = (): SupabaseClient | null => {
   }
   
   try {
+    // For web, use default localStorage (Supabase handles this automatically)
+    // For native, we'd use AsyncStorage
+    const isWeb = Platform.OS === 'web';
+    
+    console.log('[Supabase] Creating client for platform:', Platform.OS);
+    console.log('[Supabase] URL:', supabaseUrl);
+    
     _supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        storage: getStorage(),
-        storageKey: STORAGE_KEY,
+        // Let Supabase use its default localStorage handling on web
+        // This is more reliable than a custom implementation
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: Platform.OS === 'web',
+        detectSessionInUrl: isWeb,
+        // On web, Supabase will automatically use localStorage
+        // with the key format: sb-<project-ref>-auth-token
+        flowType: 'pkce',
       },
     });
+    
+    // Debug: Log when client is created
+    console.log('[Supabase] Client created successfully');
+    
     return _supabase;
   } catch (error) {
     console.error('[Supabase] Failed to create client:', error);
