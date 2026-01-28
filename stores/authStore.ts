@@ -26,7 +26,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
 
   initialize: async () => {
+    // Prevent re-initialization
+    if (get().isInitialized) {
+      console.log('[AuthStore] Already initialized, skipping');
+      return;
+    }
+    
     console.log('[AuthStore] Initializing...');
+    
     try {
       if (!supabase) {
         console.warn('[AuthStore] No Supabase client - running without auth');
@@ -34,8 +41,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
       
-      // Set up auth state listener FIRST before getting session
-      // This ensures we catch any auth state changes
+      // Set up auth state listener
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         console.log('[AuthStore] Auth state changed:', event, session ? 'has session' : 'no session');
         
@@ -44,25 +50,39 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           return;
         }
         
-        if (session?.user) {
-          // Fetch or create user profile
-          const { data: profile, error: profileError } = await supabase
-            .from(TABLES.users)
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (profileError && profileError.code !== 'PGRST116') {
-            console.warn('[AuthStore] Profile fetch error:', profileError);
+        // Handle INITIAL_SESSION - this is the session restoration on page load
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          if (session?.user) {
+            // Fetch user profile
+            const { data: profile, error: profileError } = await supabase
+              .from(TABLES.users)
+              .select('*')
+              .eq('id', session.user.id)
+              .maybeSingle();
+            
+            if (profileError && profileError.code !== 'PGRST116') {
+              console.warn('[AuthStore] Profile fetch error:', profileError);
+            }
+            
+            console.log('[AuthStore] Setting session and user from', event);
+            set({ 
+              session, 
+              user: profile || null,
+              isLoading: false,
+              isInitialized: true 
+            });
+          } else {
+            set({ 
+              session: null, 
+              user: null,
+              isLoading: false,
+              isInitialized: true 
+            });
           }
-          
-          set({ session, user: profile || null });
-        } else {
-          set({ session: null, user: null });
         }
       });
 
-      // Now get the current session
+      // Get the current session - this will also trigger INITIAL_SESSION event
       console.log('[AuthStore] Getting current session...');
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
@@ -72,30 +92,40 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
       
-      console.log('[AuthStore] Current session:', session ? 'Found' : 'None');
+      console.log('[AuthStore] Current session from getSession:', session ? 'Found' : 'None');
       
-      if (session?.user) {
-        console.log('[AuthStore] Fetching profile for:', session.user.id);
-        const { data: profile, error: profileError } = await supabase
-          .from(TABLES.users)
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (profileError && profileError.code !== 'PGRST116') {
-          console.warn('[AuthStore] Profile error:', profileError);
-        }
-        
+      // If no session, we're done - no need to wait for INITIAL_SESSION
+      if (!session) {
+        console.log('[AuthStore] No session found, setting initialized');
         set({ 
-          session, 
-          user: profile || null,
-          isLoading: false,
-          isInitialized: true 
+          isLoading: false, 
+          isInitialized: true,
+          session: null,
+          user: null 
         });
-      } else {
-        console.log('[AuthStore] No session, setting initialized');
-        set({ isLoading: false, isInitialized: true });
+        return;
       }
+      
+      // Session exists - fetch user profile
+      console.log('[AuthStore] Fetching profile for:', session.user.id);
+      const { data: profile, error: profileError } = await supabase
+        .from(TABLES.users)
+        .select('*')
+        .eq('id', session.user.id)
+        .maybeSingle();
+      
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.warn('[AuthStore] Profile error:', profileError);
+      }
+      
+      console.log('[AuthStore] Setting initial state with session and profile');
+      set({ 
+        session, 
+        user: profile || null,
+        isLoading: false,
+        isInitialized: true 
+      });
+      
     } catch (error) {
       console.error('[AuthStore] Initialization error:', error);
       set({ isLoading: false, isInitialized: true, error: String(error) });
