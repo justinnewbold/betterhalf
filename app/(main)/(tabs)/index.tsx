@@ -7,16 +7,19 @@ import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { SyncScoreRing } from '../../../components/game/SyncScoreRing';
 import { useAuthStore } from '../../../stores/authStore';
+import { useCoupleStore } from '../../../stores/coupleStore';
 import { colors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
 
 export default function Home() {
-  const { user, couple } = useAuthStore();
+  const { user } = useAuthStore();
+  const { couple, partnerProfile, stats, streak: streakData } = useCoupleStore();
 
-  // Mock data for demo
-  const syncScore = 70;
-  const streak = 7;
-  const partnerName = couple?.partnerName || 'Partner';
+  // Use real data where available, fallback to defaults
+  const syncScore = stats?.sync_score || 0;
+  const streak = streakData?.current_streak || 0;
+  const partnerName = partnerProfile?.display_name || 'Partner';
+  const userName = user?.display_name || 'You';
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -41,7 +44,7 @@ export default function Home() {
           <View>
             <Text style={styles.greeting}>{getGreeting()}</Text>
             <Text style={styles.names}>
-              {user?.user_metadata?.display_name || 'You'} & {partnerName}
+              {userName} & {partnerName}
             </Text>
           </View>
           <LinearGradient
@@ -87,17 +90,21 @@ export default function Home() {
         {/* Quick Stats */}
         <View style={styles.quickStats}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>43</Text>
+            <Text style={styles.statValue}>{stats?.total_games || 0}</Text>
             <Text style={styles.statLabel}>Games Played</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>31</Text>
+            <Text style={styles.statValue}>{stats?.total_matches || 0}</Text>
             <Text style={styles.statLabel}>Matches</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>72%</Text>
+            <Text style={styles.statValue}>
+              {stats?.total_questions 
+                ? Math.round((stats.total_matches / stats.total_questions) * 100) 
+                : 0}%
+            </Text>
             <Text style={styles.statLabel}>Match Rate</Text>
           </View>
         </View>
