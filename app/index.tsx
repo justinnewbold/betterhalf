@@ -1,4 +1,4 @@
-import { Redirect } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useAuthStore } from '../stores/authStore';
 import { useCoupleStore } from '../stores/coupleStore';
 import { useEffect, useState } from 'react';
@@ -9,19 +9,29 @@ export default function Index() {
   const { session, isLoading: authLoading, isInitialized } = useAuthStore();
   const { couple, isLoading: coupleLoading, hasFetched, fetchCouple } = useCoupleStore();
   const [isPasswordReset, setIsPasswordReset] = useState<boolean | null>(null);
+  const [resetUrl, setResetUrl] = useState<string>('/(auth)/reset-password');
 
   // Check if this is a password reset link
   useEffect(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const url = window.location.href;
+      const search = window.location.search;
+      const hash = window.location.hash;
+      const pathname = window.location.pathname;
+      
       const hasCode = url.includes('code=');
-      const hasRecoveryHash = window.location.hash.includes('type=recovery');
-      const isResetPath = window.location.pathname.includes('reset-password');
+      const hasRecoveryHash = hash.includes('type=recovery');
+      const isResetPath = pathname.includes('reset-password');
       
       console.log('[Index] URL check - code:', hasCode, 'recovery hash:', hasRecoveryHash, 'reset path:', isResetPath);
+      console.log('[Index] Full URL:', url);
       
       if (hasCode || hasRecoveryHash || isResetPath) {
         console.log('[Index] Password reset detected, redirecting to reset-password');
+        // Preserve query params and hash for the reset-password page
+        const resetPath = `/(auth)/reset-password${search}${hash}`;
+        console.log('[Index] Reset path with params:', resetPath);
+        setResetUrl(resetPath);
         setIsPasswordReset(true);
       } else {
         setIsPasswordReset(false);
@@ -46,9 +56,9 @@ export default function Index() {
     );
   }
 
-  // Password reset flow - redirect to reset-password page
+  // Password reset flow - redirect to reset-password page with params preserved
   if (isPasswordReset) {
-    return <Redirect href="/(auth)/reset-password" />;
+    return <Redirect href={resetUrl as any} />;
   }
 
   // Still initializing auth
