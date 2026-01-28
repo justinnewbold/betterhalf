@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Share, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Clipboard } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,6 +16,7 @@ export default function Invite() {
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export default function Invite() {
     
     setActionLoading(true);
     setError('');
+    setSuccess('');
     const result = await createCouple(session.user.id);
     setActionLoading(false);
     
@@ -46,10 +48,54 @@ export default function Invite() {
   };
 
   const handleShareCode = async () => {
+    if (!couple?.invite_code) return;
+    
+    const shareMessage = `Join me on Better Half! Use my invite code: ${couple.invite_code}\n\nGo to https://betterhalf.newbold.cloud and enter this code to connect with me.`;
+    
+    // Check if Web Share API is available
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Join me on Better Half!',
+          text: shareMessage,
+        });
+      } catch (err) {
+        // User cancelled or share failed - fallback to clipboard
+        copyToClipboard(shareMessage);
+      }
+    } else if (Platform.OS === 'web') {
+      // Fallback for web without Share API
+      copyToClipboard(shareMessage);
+    } else {
+      // Native Share
+      const { Share } = require('react-native');
+      try {
+        await Share.share({ message: shareMessage });
+      } catch (err) {
+        copyToClipboard(shareMessage);
+      }
+    }
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        setSuccess('Copied to clipboard!');
+      } else {
+        // React Native clipboard
+        Clipboard.setString(text);
+        setSuccess('Copied to clipboard!');
+      }
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError('Failed to copy to clipboard');
+    }
+  };
+
+  const handleCopyCode = () => {
     if (couple?.invite_code) {
-      await Share.share({
-        message: `Join me on Better Half! Use my invite code: ${couple.invite_code}\n\nDownload the app and enter this code to connect with me.`,
-      });
+      copyToClipboard(couple.invite_code);
     }
   };
 
@@ -63,11 +109,14 @@ export default function Invite() {
 
     setActionLoading(true);
     setError('');
+    setSuccess('');
     const result = await joinCouple(session.user.id, code.toUpperCase());
     setActionLoading(false);
 
     if (result.error) {
       setError(result.error.message || 'Invalid or expired code');
+    } else {
+      setSuccess('Joined successfully! Redirecting...');
     }
     // If successful, the useEffect watching couple will redirect
   };
@@ -107,7 +156,7 @@ export default function Invite() {
         <View style={styles.toggleContainer}>
           <TouchableOpacity
             style={[styles.toggleButton, mode === 'create' && styles.toggleActive]}
-            onPress={() => { setMode('create'); setError(''); }}
+            onPress={() => { setMode('create'); setError(''); setSuccess(''); }}
           >
             <Text style={[styles.toggleText, mode === 'create' && styles.toggleTextActive]}>
               Invite Partner
@@ -115,7 +164,7 @@ export default function Invite() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.toggleButton, mode === 'join' && styles.toggleActive]}
-            onPress={() => { setMode('join'); setError(''); }}
+            onPress={() => { setMode('join'); setError(''); setSuccess(''); }}
           >
             <Text style={[styles.toggleText, mode === 'join' && styles.toggleTextActive]}>
               Enter Code
@@ -135,7 +184,12 @@ export default function Invite() {
                   <Text style={styles.codeValue}>{couple.invite_code}</Text>
                 </View>
 
+                {success ? <Text style={styles.success}>{success}</Text> : null}
+                {error ? <Text style={styles.error}>{error}</Text> : null}
+
                 <Button title="📤 Share Code" onPress={handleShareCode} fullWidth />
+                <View style={{ height: 12 }} />
+                <Button title="📋 Copy Code" onPress={handleCopyCode} variant="secondary" fullWidth />
               </>
             ) : (
               <>
@@ -156,14 +210,15 @@ export default function Invite() {
             <Text style={styles.subtitle}>Enter the invite code they shared</Text>
 
             <Input
-              placeholder="Enter 6-digit code"
+              placeholder="Enter code (e.g. ABC123)"
               value={code}
-              onChangeText={(text) => { setCode(text); setError(''); }}
+              onChangeText={(text) => { setCode(text.toUpperCase()); setError(''); setSuccess(''); }}
               autoCapitalize="characters"
-              maxLength={6}
+              maxLength={8}
               style={styles.codeInput}
             />
 
+            {success ? <Text style={styles.success}>{success}</Text> : null}
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
             <Button
@@ -290,11 +345,17 @@ const styles = StyleSheet.create({
   codeInput: {
     textAlign: 'center',
     fontSize: 24,
-    letterSpacing: 8,
+    letterSpacing: 4,
   },
   error: {
     ...typography.bodySmall,
     color: colors.error,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  success: {
+    ...typography.bodySmall,
+    color: colors.success || '#4CAF50',
     textAlign: 'center',
     marginBottom: 16,
   },
