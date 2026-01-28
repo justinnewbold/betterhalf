@@ -7,7 +7,7 @@ import { QuestionCard } from '../../../components/game/QuestionCard';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { SyncScoreRing } from '../../../components/game/SyncScoreRing';
-import { useAuthStore } from '../../../stores/authStore';
+import { useCoupleStore } from '../../../stores/coupleStore';
 import { colors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
 
@@ -23,13 +23,13 @@ const DEMO_QUESTION = {
 type GamePhase = 'question' | 'waiting' | 'reveal' | 'results';
 
 export default function DailySync() {
-  const { couple } = useAuthStore();
+  const { partnerProfile } = useCoupleStore();
   const [phase, setPhase] = useState<GamePhase>('question');
   const [selectedOption, setSelectedOption] = useState<number | undefined>();
   const [partnerOption, setPartnerOption] = useState<number | undefined>();
   const [isMatch, setIsMatch] = useState(false);
 
-  const partnerName = couple?.partnerName || 'Partner';
+  const partnerName = partnerProfile?.display_name || 'Partner';
 
   const handleSelectOption = (index: number) => {
     setSelectedOption(index);
