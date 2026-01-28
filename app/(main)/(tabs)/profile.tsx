@@ -6,16 +6,26 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { useAuthStore } from '../../../stores/authStore';
+import { useCoupleStore } from '../../../stores/coupleStore';
 import { colors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
 
 export default function Profile() {
-  const { user, couple, signOut } = useAuthStore();
+  const { user, signOut } = useAuthStore();
+  const { couple, partnerProfile, stats, streak: streakData, reset: resetCoupleStore } = useCoupleStore();
 
-  const userName = user?.user_metadata?.display_name || 'You';
-  const partnerName = couple?.partnerName || 'Partner';
+  const userName = user?.display_name || 'You';
+  const partnerName = partnerProfile?.display_name || 'Partner';
+
+  // Format anniversary date if available
+  const formatAnniversary = () => {
+    if (!couple?.anniversary_date) return 'Set your anniversary';
+    const date = new Date(couple.anniversary_date);
+    return `Together since ${date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+  };
 
   const handleSignOut = async () => {
+    resetCoupleStore();
     await signOut();
     router.replace('/(auth)/welcome');
   };
@@ -34,21 +44,21 @@ export default function Profile() {
         </View>
 
         <Text style={styles.names}>{userName} & {partnerName}</Text>
-        <Text style={styles.since}>Together since March 2015</Text>
+        <Text style={styles.since}>{formatAnniversary()}</Text>
 
         {/* Quick Stats */}
         <Card style={styles.statsCard}>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>7</Text>
+              <Text style={styles.statValue}>{streakData?.current_streak || 0}</Text>
               <Text style={styles.statLabel}>Day Streak</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: colors.coral }]}>43</Text>
+              <Text style={[styles.statValue, { color: colors.coral }]}>{stats?.total_games || 0}</Text>
               <Text style={styles.statLabel}>Games</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: colors.success }]}>12</Text>
+              <Text style={[styles.statValue, { color: colors.success }]}>0</Text>
               <Text style={styles.statLabel}>Badges</Text>
             </View>
           </View>
