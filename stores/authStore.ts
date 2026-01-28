@@ -26,120 +26,92 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
 
   initialize: async () => {
-    // Prevent re-initialization
     if (get().isInitialized) {
-      console.log('[AuthStore] Already initialized, skipping');
+      console.log('[AuthStore] Already initialized');
       return;
     }
     
     console.log('[AuthStore] Initializing...');
-    
-    // Get Supabase client (will be created lazily on first call in browser)
     const supabase = getSupabase();
     
     if (!supabase) {
-      console.warn('[AuthStore] No Supabase client available');
+      console.warn('[AuthStore] No Supabase client');
       set({ isLoading: false, isInitialized: true, error: 'Supabase not configured' });
       return;
     }
     
     try {
-      // Get the current session first
-      console.log('[AuthStore] Getting current session...');
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.error('[AuthStore] Session error:', sessionError);
-        set({ isLoading: false, isInitialized: true, error: sessionError.message });
-        return;
-      }
-      
-      console.log('[AuthStore] Session from getSession:', session ? 'Found' : 'None');
-      
-      // Set up auth state listener for future changes
-      supabase.auth.onAuthStateChange(async (event, newSession) => {
-        console.log('[AuthStore] Auth state changed:', event);
+      // Set up auth state change listener
+      supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('[AuthStore] Auth event:', event);
         
         if (event === 'SIGNED_OUT') {
           set({ session: null, user: null });
           return;
         }
         
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          if (newSession?.user) {
-            const client = getSupabase();
-            if (client) {
-              const { data: profile } = await client
-                .from(TABLES.users)
-                .select('*')
-                .eq('id', newSession.user.id)
-                .maybeSingle();
-              
-              set({ session: newSession, user: profile || null });
-            }
+        if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+          const client = getSupabase();
+          if (client) {
+            const { data: profile } = await client
+              .from(TABLES.users)
+              .select('*')
+              .eq('id', session.user.id)
+              .maybeSingle();
+            set({ session, user: profile || null });
           }
         }
       });
+
+      // Get current session
+      console.log('[AuthStore] Getting session...');
+      const { data: { session }, error } = await supabase.auth.getSession();
       
-      // Process initial session
+      if (error) {
+        console.error('[AuthStore] Session error:', error);
+        set({ isLoading: false, isInitialized: true, error: error.message });
+        return;
+      }
+      
+      console.log('[AuthStore] Session:', session ? 'exists' : 'none');
+      
       if (session?.user) {
-        console.log('[AuthStore] Fetching profile for:', session.user.id);
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile } = await supabase
           .from(TABLES.users)
           .select('*')
           .eq('id', session.user.id)
           .maybeSingle();
         
-        if (profileError && profileError.code !== 'PGRST116') {
-          console.warn('[AuthStore] Profile error:', profileError);
-        }
-        
-        console.log('[AuthStore] Profile loaded:', profile ? 'Yes' : 'No');
-        set({ 
-          session, 
-          user: profile || null,
-          isLoading: false,
-          isInitialized: true 
-        });
+        console.log('[AuthStore] Profile loaded');
+        set({ session, user: profile || null, isLoading: false, isInitialized: true });
       } else {
-        console.log('[AuthStore] No session, marking initialized');
-        set({ 
-          isLoading: false, 
-          isInitialized: true,
-          session: null,
-          user: null 
-        });
+        set({ session: null, user: null, isLoading: false, isInitialized: true });
       }
-      
     } catch (error) {
-      console.error('[AuthStore] Initialization error:', error);
+      console.error('[AuthStore] Init error:', error);
       set({ isLoading: false, isInitialized: true, error: String(error) });
     }
   },
 
   signUp: async (email, password, displayName) => {
     const supabase = getSupabase();
-    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    if (!supabase) return { error: { message: 'Not configured' } };
     
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: { display_name: displayName },
-        },
+        options: { data: { display_name: displayName } },
       });
 
       if (error) return { error };
 
       if (data.user) {
-        await supabase
-          .from(TABLES.users)
-          .upsert({
-            id: data.user.id,
-            email: data.user.email!,
-            display_name: displayName,
-          }, { onConflict: 'id' });
+        await supabase.from(TABLES.users).upsert({
+          id: data.user.id,
+          email: data.user.email!,
+          display_name: displayName,
+        }, { onConflict: 'id' });
       }
 
       return { error: null };
@@ -150,28 +122,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signIn: async (email, password) => {
     const supabase = getSupabase();
-    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    if (!supabase) return { error: { message: 'Not configured' } };
     
     try {
       console.log('[AuthStore] Signing in...');
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-      if (error) {
-        console.error('[AuthStore] Sign in error:', error);
-        return { error };
-      }
+      if (error) return { error };
 
-      // Manually update state after sign in
       if (data.session?.user) {
         const { data: profile } = await supabase
           .from(TABLES.users)
           .select('*')
           .eq('id', data.session.user.id)
           .maybeSingle();
-        
         set({ session: data.session, user: profile || null });
       }
 
@@ -186,21 +150,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const supabase = getSupabase();
     if (!supabase) return;
     
-    try {
-      console.log('[AuthStore] Signing out...');
-      await supabase.auth.signOut();
-      set({ user: null, session: null });
-    } catch (error) {
-      console.error('Sign out error:', error);
-    }
+    console.log('[AuthStore] Signing out...');
+    await supabase.auth.signOut();
+    set({ user: null, session: null });
   },
 
   updateProfile: async (updates) => {
     const supabase = getSupabase();
-    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    if (!supabase) return { error: { message: 'Not configured' } };
     
     const { user } = get();
-    if (!user) return { error: { message: 'No user logged in' } };
+    if (!user) return { error: { message: 'Not logged in' } };
 
     try {
       const { error } = await supabase
@@ -208,10 +168,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', user.id);
 
-      if (!error) {
-        set({ user: { ...user, ...updates } });
-      }
-
+      if (!error) set({ user: { ...user, ...updates } });
       return { error };
     } catch (error) {
       return { error };
