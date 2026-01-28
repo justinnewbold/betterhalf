@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Platform } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '../../components/ui/Button';
@@ -17,8 +17,12 @@ export default function ResetPassword() {
   const [success, setSuccess] = useState(false);
   const [checking, setChecking] = useState(true);
   const [hasValidSession, setHasValidSession] = useState(false);
+  const [debugInfo, setDebugInfo] = useState('');
+  const mounted = useRef(true);
 
   useEffect(() => {
+    mounted.current = true;
+    
     const handlePasswordReset = async () => {
       if (!supabase) {
         setError('Service not available');
@@ -26,96 +30,137 @@ export default function ResetPassword() {
         return;
       }
 
+      let debug = '';
+
       try {
+        // Log URL info for debugging
         if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          const url = new URL(window.location.href);
+          const url = window.location.href;
+          const hasCode = url.includes('code=');
+          const hasHash = window.location.hash.length > 1;
+          const hasError = url.includes('error');
+          debug = `URL has code: ${hasCode}, hash: ${hasHash}, error: ${hasError}`;
+          console.log('[ResetPassword]', debug);
           
-          // Method 1: Check for PKCE code in query params
-          const code = url.searchParams.get('code');
-          if (code) {
-            console.log('[ResetPassword] Found PKCE code, exchanging for session');
-            const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-            
-            if (exchangeError) {
-              console.error('[ResetPassword] Code exchange error:', exchangeError);
-              setError('Invalid or expired reset link');
-              setChecking(false);
-              return;
-            }
-            
-            if (data.session) {
-              console.log('[ResetPassword] Session established from code');
-              setHasValidSession(true);
-              setChecking(false);
-              // Clean URL
-              window.history.replaceState(null, '', window.location.pathname);
-              return;
-            }
-          }
-          
-          // Method 2: Check for tokens in hash (implicit flow)
-          const hash = window.location.hash;
-          if (hash) {
-            const params = new URLSearchParams(hash.substring(1));
-            const accessToken = params.get('access_token');
-            const refreshToken = params.get('refresh_token');
-            const type = params.get('type');
-            
-            console.log('[ResetPassword] Hash type:', type, 'Has token:', !!accessToken);
-            
-            if (type === 'recovery' && accessToken) {
-              console.log('[ResetPassword] Setting session from hash tokens');
-              const { data, error: sessionError } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken || '',
-              });
-              
-              if (sessionError) {
-                console.error('[ResetPassword] Session error:', sessionError);
-                setError('Invalid or expired reset link');
-                setChecking(false);
-                return;
-              }
-              
-              if (data.session) {
-                console.log('[ResetPassword] Session established from hash');
-                setHasValidSession(true);
-                setChecking(false);
-                window.history.replaceState(null, '', window.location.pathname);
-                return;
-              }
-            }
-          }
-          
-          // Method 3: Check for error in URL (e.g., expired link)
-          const errorDesc = url.searchParams.get('error_description') || url.hash.includes('error');
-          if (errorDesc) {
-            console.error('[ResetPassword] URL error:', errorDesc);
-            setError('This reset link has expired. Please request a new one.');
+          // Check for error in URL first
+          const urlObj = new URL(url);
+          const errorParam = urlObj.searchParams.get('error_description') || urlObj.searchParams.get('error');
+          if (errorParam) {
+            console.log('[ResetPassword] URL error:', errorParam);
+            setError(decodeURIComponent(errorParam));
             setChecking(false);
             return;
           }
         }
+
+        // Listen for auth state changes - Supabase will emit events when processing URL
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          console.log('[ResetPassword] Auth event:', event, 'Has session:', !!session);
+          
+          if (!mounted.current) return;
+          
+          if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+            console.log('[ResetPassword] Valid session detected via event');
+            setHasValidSession(true);
+            setChecking(false);
+          } else if (event === 'TOKEN_REFRESHED' && session) {
+            setHasValidSession(true);
+            setChecking(false);
+          }
+        });
+
+        // Give Supabase time to process URL and emit events (detectSessionInUrl)
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
-        // Method 4: Check for existing session (maybe already processed)
+        if (!mounted.current) return;
+
+        // Check if session was established
         const { data: { session } } = await supabase.auth.getSession();
-        console.log('[ResetPassword] Existing session check:', !!session);
+        console.log('[ResetPassword] Session after wait:', !!session);
         
         if (session) {
           setHasValidSession(true);
-        } else {
-          setError('No valid reset link found. Please request a new password reset.');
+          setChecking(false);
+          subscription.unsubscribe();
+          return;
         }
-      } catch (err) {
+
+        // If no session yet but we have URL params, try manual exchange
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          const code = url.searchParams.get('code');
+          
+          if (code) {
+            console.log('[ResetPassword] Manually exchanging code');
+            const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+            
+            if (!mounted.current) return;
+            
+            if (exchangeError) {
+              console.error('[ResetPassword] Exchange error:', exchangeError);
+              // Code might have already been used
+              const { data: { session: retrySession } } = await supabase.auth.getSession();
+              if (retrySession) {
+                setHasValidSession(true);
+              } else {
+                setError('Reset link expired or already used');
+              }
+            } else if (data?.session) {
+              console.log('[ResetPassword] Session from manual exchange');
+              setHasValidSession(true);
+            }
+            setChecking(false);
+            subscription.unsubscribe();
+            return;
+          }
+          
+          // Try hash tokens (implicit flow fallback)
+          const hash = window.location.hash;
+          if (hash && hash.includes('access_token')) {
+            const params = new URLSearchParams(hash.substring(1));
+            const accessToken = params.get('access_token');
+            const refreshToken = params.get('refresh_token');
+            
+            if (accessToken) {
+              console.log('[ResetPassword] Setting session from hash');
+              const { error: setError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken || '',
+              });
+              
+              if (!setError) {
+                setHasValidSession(true);
+                setChecking(false);
+                subscription.unsubscribe();
+                return;
+              }
+            }
+          }
+        }
+
+        // Final check
+        setDebugInfo(debug);
+        if (!hasValidSession) {
+          setError('No valid reset session. Please request a new password reset link.');
+        }
+        subscription.unsubscribe();
+      } catch (err: any) {
         console.error('[ResetPassword] Error:', err);
-        setError('Failed to verify reset link');
+        if (mounted.current) {
+          setError(err.message || 'Failed to verify reset link');
+        }
       } finally {
-        setChecking(false);
+        if (mounted.current) {
+          setChecking(false);
+        }
       }
     };
 
-    // Small delay to ensure URL is fully loaded
-    setTimeout(handlePasswordReset, 100);
+    handlePasswordReset();
+
+    return () => {
+      mounted.current = false;
+    };
   }, []);
 
   const handleUpdatePassword = async () => {
@@ -151,8 +196,7 @@ export default function ResetPassword() {
         console.error('[ResetPassword] Update error:', error);
         setError(error.message);
       } else {
-        console.log('[ResetPassword] Password updated successfully');
-        // Sign out so user can sign in fresh with new password
+        console.log('[ResetPassword] Password updated!');
         await supabase.auth.signOut();
         setSuccess(true);
       }
@@ -190,6 +234,7 @@ export default function ResetPassword() {
           <Text style={styles.subtitle}>
             {error || 'This password reset link has expired or is invalid.'}
           </Text>
+          {debugInfo ? <Text style={styles.debug}>{debugInfo}</Text> : null}
 
           <View style={styles.spacer} />
 
@@ -328,6 +373,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 32,
     paddingHorizontal: 20,
+  },
+  debug: {
+    ...typography.bodySmall,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: 8,
+    opacity: 0.6,
   },
   error: {
     ...typography.bodySmall,
