@@ -7,6 +7,9 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 // Singleton Supabase client
 let _supabase: SupabaseClient | null = null;
 
+// Check if we're in a browser environment
+const isBrowser = () => typeof window !== 'undefined';
+
 const createSupabaseClient = (): SupabaseClient | null => {
   // Return existing instance if available
   if (_supabase) return _supabase;
@@ -16,28 +19,27 @@ const createSupabaseClient = (): SupabaseClient | null => {
     return null;
   }
   
+  // Don't create client during SSR - wait for browser
+  if (!isBrowser()) {
+    console.log('[Supabase] Skipping client creation during SSR');
+    return null;
+  }
+  
   try {
-    // For web, use default localStorage (Supabase handles this automatically)
-    // For native, we'd use AsyncStorage
     const isWeb = Platform.OS === 'web';
     
     console.log('[Supabase] Creating client for platform:', Platform.OS);
-    console.log('[Supabase] URL:', supabaseUrl);
     
     _supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        // Let Supabase use its default localStorage handling on web
-        // This is more reliable than a custom implementation
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: isWeb,
-        // On web, Supabase will automatically use localStorage
-        // with the key format: sb-<project-ref>-auth-token
-        flowType: 'pkce',
+        storage: isWeb ? window.localStorage : undefined,
+        storageKey: 'betterhalf-auth',
       },
     });
     
-    // Debug: Log when client is created
     console.log('[Supabase] Client created successfully');
     
     return _supabase;
@@ -47,12 +49,16 @@ const createSupabaseClient = (): SupabaseClient | null => {
   }
 };
 
-// Export singleton
-export const supabase = createSupabaseClient();
-
+// Lazy initialization - only create when needed and in browser
 export const getSupabase = (): SupabaseClient | null => {
-  return _supabase || createSupabaseClient();
+  if (!_supabase && isBrowser()) {
+    _supabase = createSupabaseClient();
+  }
+  return _supabase;
 };
+
+// For backward compatibility - but will be null during SSR
+export const supabase = isBrowser() ? createSupabaseClient() : null;
 
 // Table names with prefix for isolation
 export const TABLES = {
