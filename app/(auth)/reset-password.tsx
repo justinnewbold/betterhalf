@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { View, Text, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '../../components/ui/Button';
@@ -16,27 +16,73 @@ export default function ResetPassword() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [checking, setChecking] = useState(true);
-  const [hasSession, setHasSession] = useState(false);
+  const [hasValidSession, setHasValidSession] = useState(false);
 
   useEffect(() => {
-    // Check if user has a valid session from the reset link
-    const checkSession = async () => {
+    const handlePasswordReset = async () => {
       if (!supabase) {
+        setError('Service not available');
         setChecking(false);
         return;
       }
 
       try {
+        // On web, Supabase puts recovery tokens in the URL hash
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          const hash = window.location.hash;
+          const params = new URLSearchParams(hash.substring(1));
+          
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+          const type = params.get('type');
+          
+          console.log('[ResetPassword] URL type:', type);
+          console.log('[ResetPassword] Has access token:', !!accessToken);
+          
+          // If we have recovery tokens, set the session
+          if (type === 'recovery' && accessToken) {
+            console.log('[ResetPassword] Setting session from recovery tokens');
+            const { data, error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || '',
+            });
+            
+            if (sessionError) {
+              console.error('[ResetPassword] Session error:', sessionError);
+              setError('Invalid or expired reset link');
+              setChecking(false);
+              return;
+            }
+            
+            if (data.session) {
+              console.log('[ResetPassword] Session established');
+              setHasValidSession(true);
+              setChecking(false);
+              // Clear the hash from URL
+              window.history.replaceState(null, '', window.location.pathname);
+              return;
+            }
+          }
+        }
+        
+        // Fallback: check if there's already a valid session
         const { data: { session } } = await supabase.auth.getSession();
-        setHasSession(!!session);
+        console.log('[ResetPassword] Existing session:', !!session);
+        
+        if (session) {
+          setHasValidSession(true);
+        } else {
+          setError('No valid reset session found');
+        }
       } catch (err) {
-        console.error('Session check error:', err);
+        console.error('[ResetPassword] Error:', err);
+        setError('Failed to verify reset link');
       } finally {
         setChecking(false);
       }
     };
 
-    checkSession();
+    handlePasswordReset();
   }, []);
 
   const handleUpdatePassword = async () => {
@@ -69,11 +115,14 @@ export default function ResetPassword() {
       });
 
       if (error) {
+        console.error('[ResetPassword] Update error:', error);
         setError(error.message);
       } else {
+        console.log('[ResetPassword] Password updated successfully');
         setSuccess(true);
       }
     } catch (err: any) {
+      console.error('[ResetPassword] Exception:', err);
       setError(err.message || 'Failed to update password');
     } finally {
       setLoading(false);
@@ -91,7 +140,7 @@ export default function ResetPassword() {
     );
   }
 
-  if (!hasSession) {
+  if (!hasValidSession) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.content}>
@@ -104,7 +153,7 @@ export default function ResetPassword() {
 
           <Text style={styles.title}>Link Expired</Text>
           <Text style={styles.subtitle}>
-            This password reset link has expired or is invalid. Please request a new one.
+            {error || 'This password reset link has expired or is invalid. Please request a new one.'}
           </Text>
 
           <View style={styles.spacer} />
