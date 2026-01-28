@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase, TABLES } from '../lib/supabase';
+import { getSupabase, TABLES } from '../lib/supabase';
 import type { Tables } from '../lib/supabase';
 
 type User = Tables['users'];
@@ -34,55 +34,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     
     console.log('[AuthStore] Initializing...');
     
+    // Get Supabase client (will be created lazily on first call in browser)
+    const supabase = getSupabase();
+    
+    if (!supabase) {
+      console.warn('[AuthStore] No Supabase client available');
+      set({ isLoading: false, isInitialized: true, error: 'Supabase not configured' });
+      return;
+    }
+    
     try {
-      if (!supabase) {
-        console.warn('[AuthStore] No Supabase client - running without auth');
-        set({ isLoading: false, isInitialized: true, error: 'Supabase not configured' });
-        return;
-      }
-      
-      // Set up auth state listener
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('[AuthStore] Auth state changed:', event, session ? 'has session' : 'no session');
-        
-        if (event === 'SIGNED_OUT') {
-          set({ session: null, user: null });
-          return;
-        }
-        
-        // Handle INITIAL_SESSION - this is the session restoration on page load
-        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          if (session?.user) {
-            // Fetch user profile
-            const { data: profile, error: profileError } = await supabase
-              .from(TABLES.users)
-              .select('*')
-              .eq('id', session.user.id)
-              .maybeSingle();
-            
-            if (profileError && profileError.code !== 'PGRST116') {
-              console.warn('[AuthStore] Profile fetch error:', profileError);
-            }
-            
-            console.log('[AuthStore] Setting session and user from', event);
-            set({ 
-              session, 
-              user: profile || null,
-              isLoading: false,
-              isInitialized: true 
-            });
-          } else {
-            set({ 
-              session: null, 
-              user: null,
-              isLoading: false,
-              isInitialized: true 
-            });
-          }
-        }
-      });
-
-      // Get the current session - this will also trigger INITIAL_SESSION event
+      // Get the current session first
       console.log('[AuthStore] Getting current session...');
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
@@ -92,39 +54,62 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
       
-      console.log('[AuthStore] Current session from getSession:', session ? 'Found' : 'None');
+      console.log('[AuthStore] Session from getSession:', session ? 'Found' : 'None');
       
-      // If no session, we're done - no need to wait for INITIAL_SESSION
-      if (!session) {
-        console.log('[AuthStore] No session found, setting initialized');
+      // Set up auth state listener for future changes
+      supabase.auth.onAuthStateChange(async (event, newSession) => {
+        console.log('[AuthStore] Auth state changed:', event);
+        
+        if (event === 'SIGNED_OUT') {
+          set({ session: null, user: null });
+          return;
+        }
+        
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          if (newSession?.user) {
+            const client = getSupabase();
+            if (client) {
+              const { data: profile } = await client
+                .from(TABLES.users)
+                .select('*')
+                .eq('id', newSession.user.id)
+                .maybeSingle();
+              
+              set({ session: newSession, user: profile || null });
+            }
+          }
+        }
+      });
+      
+      // Process initial session
+      if (session?.user) {
+        console.log('[AuthStore] Fetching profile for:', session.user.id);
+        const { data: profile, error: profileError } = await supabase
+          .from(TABLES.users)
+          .select('*')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        
+        if (profileError && profileError.code !== 'PGRST116') {
+          console.warn('[AuthStore] Profile error:', profileError);
+        }
+        
+        console.log('[AuthStore] Profile loaded:', profile ? 'Yes' : 'No');
+        set({ 
+          session, 
+          user: profile || null,
+          isLoading: false,
+          isInitialized: true 
+        });
+      } else {
+        console.log('[AuthStore] No session, marking initialized');
         set({ 
           isLoading: false, 
           isInitialized: true,
           session: null,
           user: null 
         });
-        return;
       }
-      
-      // Session exists - fetch user profile
-      console.log('[AuthStore] Fetching profile for:', session.user.id);
-      const { data: profile, error: profileError } = await supabase
-        .from(TABLES.users)
-        .select('*')
-        .eq('id', session.user.id)
-        .maybeSingle();
-      
-      if (profileError && profileError.code !== 'PGRST116') {
-        console.warn('[AuthStore] Profile error:', profileError);
-      }
-      
-      console.log('[AuthStore] Setting initial state with session and profile');
-      set({ 
-        session, 
-        user: profile || null,
-        isLoading: false,
-        isInitialized: true 
-      });
       
     } catch (error) {
       console.error('[AuthStore] Initialization error:', error);
@@ -133,35 +118,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signUp: async (email, password, displayName) => {
+    const supabase = getSupabase();
+    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    
     try {
-      if (!supabase) return { error: { message: 'Supabase not configured' } };
-      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: {
-            display_name: displayName,
-          },
+          data: { display_name: displayName },
         },
       });
 
       if (error) return { error };
 
       if (data.user) {
-        // Create user profile
-        const { error: profileError } = await supabase
+        await supabase
           .from(TABLES.users)
           .upsert({
             id: data.user.id,
             email: data.user.email!,
             display_name: displayName,
           }, { onConflict: 'id' });
-
-        if (profileError) {
-          console.error('[AuthStore] Profile creation error:', profileError);
-          // Don't return error - the trigger might have created it
-        }
       }
 
       return { error: null };
@@ -171,9 +149,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signIn: async (email, password) => {
+    const supabase = getSupabase();
+    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    
     try {
-      if (!supabase) return { error: { message: 'Supabase not configured' } };
-      
       console.log('[AuthStore] Signing in...');
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -185,7 +164,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return { error };
       }
 
-      console.log('[AuthStore] Sign in successful, session:', data.session ? 'created' : 'none');
+      // Manually update state after sign in
+      if (data.session?.user) {
+        const { data: profile } = await supabase
+          .from(TABLES.users)
+          .select('*')
+          .eq('id', data.session.user.id)
+          .maybeSingle();
+        
+        set({ session: data.session, user: profile || null });
+      }
+
+      console.log('[AuthStore] Sign in successful');
       return { error: null };
     } catch (error) {
       return { error };
@@ -193,8 +183,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    
     try {
-      if (!supabase) return;
       console.log('[AuthStore] Signing out...');
       await supabase.auth.signOut();
       set({ user: null, session: null });
@@ -204,12 +196,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   updateProfile: async (updates) => {
-    try {
-      if (!supabase) return { error: { message: 'Supabase not configured' } };
-      
-      const { user } = get();
-      if (!user) return { error: { message: 'No user logged in' } };
+    const supabase = getSupabase();
+    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    
+    const { user } = get();
+    if (!user) return { error: { message: 'No user logged in' } };
 
+    try {
       const { error } = await supabase
         .from(TABLES.users)
         .update({ ...updates, updated_at: new Date().toISOString() })
