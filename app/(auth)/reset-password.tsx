@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Platform } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '../../components/ui/Button';
@@ -27,52 +27,84 @@ export default function ResetPassword() {
       }
 
       try {
-        // On web, Supabase puts recovery tokens in the URL hash
         if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          const hash = window.location.hash;
-          const params = new URLSearchParams(hash.substring(1));
+          const url = new URL(window.location.href);
           
-          const accessToken = params.get('access_token');
-          const refreshToken = params.get('refresh_token');
-          const type = params.get('type');
-          
-          console.log('[ResetPassword] URL type:', type);
-          console.log('[ResetPassword] Has access token:', !!accessToken);
-          
-          // If we have recovery tokens, set the session
-          if (type === 'recovery' && accessToken) {
-            console.log('[ResetPassword] Setting session from recovery tokens');
-            const { data, error: sessionError } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken || '',
-            });
+          // Method 1: Check for PKCE code in query params
+          const code = url.searchParams.get('code');
+          if (code) {
+            console.log('[ResetPassword] Found PKCE code, exchanging for session');
+            const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
             
-            if (sessionError) {
-              console.error('[ResetPassword] Session error:', sessionError);
+            if (exchangeError) {
+              console.error('[ResetPassword] Code exchange error:', exchangeError);
               setError('Invalid or expired reset link');
               setChecking(false);
               return;
             }
             
             if (data.session) {
-              console.log('[ResetPassword] Session established');
+              console.log('[ResetPassword] Session established from code');
               setHasValidSession(true);
               setChecking(false);
-              // Clear the hash from URL
+              // Clean URL
               window.history.replaceState(null, '', window.location.pathname);
               return;
             }
           }
+          
+          // Method 2: Check for tokens in hash (implicit flow)
+          const hash = window.location.hash;
+          if (hash) {
+            const params = new URLSearchParams(hash.substring(1));
+            const accessToken = params.get('access_token');
+            const refreshToken = params.get('refresh_token');
+            const type = params.get('type');
+            
+            console.log('[ResetPassword] Hash type:', type, 'Has token:', !!accessToken);
+            
+            if (type === 'recovery' && accessToken) {
+              console.log('[ResetPassword] Setting session from hash tokens');
+              const { data, error: sessionError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken || '',
+              });
+              
+              if (sessionError) {
+                console.error('[ResetPassword] Session error:', sessionError);
+                setError('Invalid or expired reset link');
+                setChecking(false);
+                return;
+              }
+              
+              if (data.session) {
+                console.log('[ResetPassword] Session established from hash');
+                setHasValidSession(true);
+                setChecking(false);
+                window.history.replaceState(null, '', window.location.pathname);
+                return;
+              }
+            }
+          }
+          
+          // Method 3: Check for error in URL (e.g., expired link)
+          const errorDesc = url.searchParams.get('error_description') || url.hash.includes('error');
+          if (errorDesc) {
+            console.error('[ResetPassword] URL error:', errorDesc);
+            setError('This reset link has expired. Please request a new one.');
+            setChecking(false);
+            return;
+          }
         }
         
-        // Fallback: check if there's already a valid session
+        // Method 4: Check for existing session (maybe already processed)
         const { data: { session } } = await supabase.auth.getSession();
-        console.log('[ResetPassword] Existing session:', !!session);
+        console.log('[ResetPassword] Existing session check:', !!session);
         
         if (session) {
           setHasValidSession(true);
         } else {
-          setError('No valid reset session found');
+          setError('No valid reset link found. Please request a new password reset.');
         }
       } catch (err) {
         console.error('[ResetPassword] Error:', err);
@@ -82,7 +114,8 @@ export default function ResetPassword() {
       }
     };
 
-    handlePasswordReset();
+    // Small delay to ensure URL is fully loaded
+    setTimeout(handlePasswordReset, 100);
   }, []);
 
   const handleUpdatePassword = async () => {
@@ -119,6 +152,8 @@ export default function ResetPassword() {
         setError(error.message);
       } else {
         console.log('[ResetPassword] Password updated successfully');
+        // Sign out so user can sign in fresh with new password
+        await supabase.auth.signOut();
         setSuccess(true);
       }
     } catch (err: any) {
@@ -153,7 +188,7 @@ export default function ResetPassword() {
 
           <Text style={styles.title}>Link Expired</Text>
           <Text style={styles.subtitle}>
-            {error || 'This password reset link has expired or is invalid. Please request a new one.'}
+            {error || 'This password reset link has expired or is invalid.'}
           </Text>
 
           <View style={styles.spacer} />
