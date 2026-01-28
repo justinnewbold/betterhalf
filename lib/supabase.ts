@@ -1,17 +1,41 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
+// Custom storage adapter that works for both web and native
+const ExpoStorage = {
+  getItem: async (key: string): Promise<string | null> => {
+    if (Platform.OS === 'web') {
+      if (typeof window === 'undefined') return null;
+      return window.localStorage.getItem(key);
+    }
+    return AsyncStorage.getItem(key);
+  },
+  setItem: async (key: string, value: string): Promise<void> => {
+    if (Platform.OS === 'web') {
+      if (typeof window === 'undefined') return;
+      window.localStorage.setItem(key, value);
+      return;
+    }
+    await AsyncStorage.setItem(key, value);
+  },
+  removeItem: async (key: string): Promise<void> => {
+    if (Platform.OS === 'web') {
+      if (typeof window === 'undefined') return;
+      window.localStorage.removeItem(key);
+      return;
+    }
+    await AsyncStorage.removeItem(key);
+  },
+};
+
 // Singleton Supabase client
 let _supabase: SupabaseClient | null = null;
 
-// Check if we're in a browser environment
-const isBrowser = () => typeof window !== 'undefined';
-
 const createSupabaseClient = (): SupabaseClient | null => {
-  // Return existing instance if available
   if (_supabase) return _supabase;
   
   if (!supabaseUrl || !supabaseAnonKey) {
@@ -19,29 +43,24 @@ const createSupabaseClient = (): SupabaseClient | null => {
     return null;
   }
   
-  // Don't create client during SSR - wait for browser
-  if (!isBrowser()) {
-    console.log('[Supabase] Skipping client creation during SSR');
+  // Skip creation during SSR
+  if (Platform.OS === 'web' && typeof window === 'undefined') {
     return null;
   }
   
   try {
-    const isWeb = Platform.OS === 'web';
-    
-    console.log('[Supabase] Creating client for platform:', Platform.OS);
+    console.log('[Supabase] Creating client, platform:', Platform.OS);
     
     _supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
+        storage: ExpoStorage,
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: isWeb,
-        storage: isWeb ? window.localStorage : undefined,
-        storageKey: 'betterhalf-auth',
+        detectSessionInUrl: Platform.OS === 'web',
       },
     });
     
-    console.log('[Supabase] Client created successfully');
-    
+    console.log('[Supabase] Client created');
     return _supabase;
   } catch (error) {
     console.error('[Supabase] Failed to create client:', error);
@@ -49,18 +68,20 @@ const createSupabaseClient = (): SupabaseClient | null => {
   }
 };
 
-// Lazy initialization - only create when needed and in browser
+// Lazy getter for SSR safety
 export const getSupabase = (): SupabaseClient | null => {
-  if (!_supabase && isBrowser()) {
+  if (!_supabase) {
     _supabase = createSupabaseClient();
   }
   return _supabase;
 };
 
-// For backward compatibility - but will be null during SSR
-export const supabase = isBrowser() ? createSupabaseClient() : null;
+// For direct import (may be null during SSR)
+export const supabase = Platform.OS === 'web' && typeof window === 'undefined' 
+  ? null 
+  : createSupabaseClient();
 
-// Table names with prefix for isolation
+// Table names
 export const TABLES = {
   users: 'betterhalf_users',
   couples: 'betterhalf_couples',
