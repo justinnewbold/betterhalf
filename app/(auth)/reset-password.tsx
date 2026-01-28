@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,149 +17,71 @@ export default function ResetPassword() {
   const [success, setSuccess] = useState(false);
   const [checking, setChecking] = useState(true);
   const [hasValidSession, setHasValidSession] = useState(false);
-  const [debugInfo, setDebugInfo] = useState('');
-  const mounted = useRef(true);
 
   useEffect(() => {
-    mounted.current = true;
-    
-    const handlePasswordReset = async () => {
-      if (!supabase) {
-        setError('Service not available');
+    if (!supabase) {
+      setError('Service not available');
+      setChecking(false);
+      return;
+    }
+
+    let isMounted = true;
+    let checkCount = 0;
+    const maxChecks = 10;
+
+    // Listen for auth events from Supabase
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[ResetPassword] Auth event:', event);
+      
+      if (!isMounted) return;
+      
+      // PASSWORD_RECOVERY event means we have a valid reset session
+      if (event === 'PASSWORD_RECOVERY') {
+        console.log('[ResetPassword] PASSWORD_RECOVERY event received!');
+        setHasValidSession(true);
         setChecking(false);
+      } else if (event === 'SIGNED_IN' && session) {
+        // Sometimes it comes as SIGNED_IN
+        console.log('[ResetPassword] SIGNED_IN with session');
+        setHasValidSession(true);
+        setChecking(false);
+      }
+    });
+
+    // Poll for session since event might have already fired before listener was set up
+    const checkSession = async () => {
+      if (!isMounted || checkCount >= maxChecks) {
+        if (isMounted && !hasValidSession) {
+          console.log('[ResetPassword] Max checks reached, no session found');
+          setChecking(false);
+        }
         return;
       }
 
-      let debug = '';
-
-      try {
-        // Log URL info for debugging
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          const url = window.location.href;
-          const hasCode = url.includes('code=');
-          const hasHash = window.location.hash.length > 1;
-          const hasError = url.includes('error');
-          debug = `URL has code: ${hasCode}, hash: ${hasHash}, error: ${hasError}`;
-          console.log('[ResetPassword]', debug);
-          
-          // Check for error in URL first
-          const urlObj = new URL(url);
-          const errorParam = urlObj.searchParams.get('error_description') || urlObj.searchParams.get('error');
-          if (errorParam) {
-            console.log('[ResetPassword] URL error:', errorParam);
-            setError(decodeURIComponent(errorParam));
-            setChecking(false);
-            return;
-          }
-        }
-
-        // Listen for auth state changes - Supabase will emit events when processing URL
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-          console.log('[ResetPassword] Auth event:', event, 'Has session:', !!session);
-          
-          if (!mounted.current) return;
-          
-          if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
-            console.log('[ResetPassword] Valid session detected via event');
-            setHasValidSession(true);
-            setChecking(false);
-          } else if (event === 'TOKEN_REFRESHED' && session) {
-            setHasValidSession(true);
-            setChecking(false);
-          }
-        });
-
-        // Give Supabase time to process URL and emit events (detectSessionInUrl)
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        if (!mounted.current) return;
-
-        // Check if session was established
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('[ResetPassword] Session after wait:', !!session);
-        
-        if (session) {
-          setHasValidSession(true);
-          setChecking(false);
-          subscription.unsubscribe();
-          return;
-        }
-
-        // If no session yet but we have URL params, try manual exchange
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          const url = new URL(window.location.href);
-          const code = url.searchParams.get('code');
-          
-          if (code) {
-            console.log('[ResetPassword] Manually exchanging code');
-            const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-            
-            if (!mounted.current) return;
-            
-            if (exchangeError) {
-              console.error('[ResetPassword] Exchange error:', exchangeError);
-              // Code might have already been used
-              const { data: { session: retrySession } } = await supabase.auth.getSession();
-              if (retrySession) {
-                setHasValidSession(true);
-              } else {
-                setError('Reset link expired or already used');
-              }
-            } else if (data?.session) {
-              console.log('[ResetPassword] Session from manual exchange');
-              setHasValidSession(true);
-            }
-            setChecking(false);
-            subscription.unsubscribe();
-            return;
-          }
-          
-          // Try hash tokens (implicit flow fallback)
-          const hash = window.location.hash;
-          if (hash && hash.includes('access_token')) {
-            const params = new URLSearchParams(hash.substring(1));
-            const accessToken = params.get('access_token');
-            const refreshToken = params.get('refresh_token');
-            
-            if (accessToken) {
-              console.log('[ResetPassword] Setting session from hash');
-              const { error: setError } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken || '',
-              });
-              
-              if (!setError) {
-                setHasValidSession(true);
-                setChecking(false);
-                subscription.unsubscribe();
-                return;
-              }
-            }
-          }
-        }
-
-        // Final check
-        setDebugInfo(debug);
-        if (!hasValidSession) {
-          setError('No valid reset session. Please request a new password reset link.');
-        }
-        subscription.unsubscribe();
-      } catch (err: any) {
-        console.error('[ResetPassword] Error:', err);
-        if (mounted.current) {
-          setError(err.message || 'Failed to verify reset link');
-        }
-      } finally {
-        if (mounted.current) {
-          setChecking(false);
-        }
+      checkCount++;
+      console.log('[ResetPassword] Session check #', checkCount);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session && isMounted) {
+        console.log('[ResetPassword] Found session on check #', checkCount);
+        setHasValidSession(true);
+        setChecking(false);
+        return;
+      }
+      
+      // Check again after delay
+      if (isMounted && checkCount < maxChecks) {
+        setTimeout(checkSession, 500);
       }
     };
 
-    handlePasswordReset();
+    // Start checking after a short delay to let Supabase process URL
+    setTimeout(checkSession, 300);
 
     return () => {
-      mounted.current = false;
+      isMounted = false;
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -197,6 +119,7 @@ export default function ResetPassword() {
         setError(error.message);
       } else {
         console.log('[ResetPassword] Password updated!');
+        // Sign out and redirect to sign in
         await supabase.auth.signOut();
         setSuccess(true);
       }
@@ -232,9 +155,8 @@ export default function ResetPassword() {
 
           <Text style={styles.title}>Link Expired</Text>
           <Text style={styles.subtitle}>
-            {error || 'This password reset link has expired or is invalid.'}
+            This password reset link has expired or is invalid. Please request a new one.
           </Text>
-          {debugInfo ? <Text style={styles.debug}>{debugInfo}</Text> : null}
 
           <View style={styles.spacer} />
 
@@ -373,13 +295,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 32,
     paddingHorizontal: 20,
-  },
-  debug: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginTop: 8,
-    opacity: 0.6,
   },
   error: {
     ...typography.bodySmall,
