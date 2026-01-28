@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase, TABLES } from '../lib/supabase';
+import { getSupabase, TABLES } from '../lib/supabase';
 import type { Tables } from '../lib/supabase';
 
 type Couple = Tables['couples'];
@@ -30,6 +30,7 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
   hasFetched: false,
 
   fetchCouple: async (userId) => {
+    const supabase = getSupabase();
     if (!supabase || !userId) {
       console.log('[CoupleStore] No supabase or userId');
       set({ isLoading: false, hasFetched: true });
@@ -93,6 +94,7 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
   },
 
   createCouple: async (userId) => {
+    const supabase = getSupabase();
     if (!supabase) return { inviteCode: null, error: { message: 'Supabase not configured' } };
     
     console.log('[CoupleStore] Creating couple for user:', userId);
@@ -132,6 +134,7 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
   },
 
   joinCouple: async (userId, inviteCode) => {
+    const supabase = getSupabase();
     if (!supabase) return { error: { message: 'Supabase not configured' } };
     
     const cleanCode = inviteCode.trim().toUpperCase();
@@ -199,6 +202,7 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
   },
 
   updateCouple: async (updates) => {
+    const supabase = getSupabase();
     if (!supabase) return { error: { message: 'Supabase not configured' } };
     
     const { couple } = get();
