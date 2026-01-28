@@ -31,29 +31,30 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
 
   fetchCouple: async (userId) => {
     if (!supabase || !userId) {
+      console.log('[CoupleStore] No supabase or userId');
       set({ isLoading: false, hasFetched: true });
       return;
     }
     
     set({ isLoading: true });
+    console.log('[CoupleStore] Fetching couple for user:', userId);
 
     try {
-      // Find couple where user is either partner - use maybeSingle() for optional result
       const { data: couple, error } = await supabase
         .from(TABLES.couples)
         .select('*')
         .or(`partner_a_id.eq.${userId},partner_b_id.eq.${userId}`)
         .maybeSingle();
 
-      // Handle error but not "no rows" which is expected for new users
       if (error && error.code !== 'PGRST116') {
-        console.error('Fetch couple error:', error);
+        console.error('[CoupleStore] Fetch couple error:', error);
         set({ couple: null, partnerProfile: null, stats: null, streak: null, isLoading: false, hasFetched: true });
         return;
       }
 
+      console.log('[CoupleStore] Found couple:', couple?.id, 'status:', couple?.status);
+
       if (couple) {
-        // Get partner profile
         const partnerId = couple.partner_a_id === userId 
           ? couple.partner_b_id 
           : couple.partner_a_id;
@@ -68,14 +69,12 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
           partnerProfile = data;
         }
 
-        // Get stats
         const { data: stats } = await supabase
           .from(TABLES.couple_stats)
           .select('*')
           .eq('couple_id', couple.id)
           .maybeSingle();
 
-        // Get streak
         const { data: streak } = await supabase
           .from(TABLES.streaks)
           .select('*')
@@ -84,17 +83,19 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
 
         set({ couple, partnerProfile, stats, streak, isLoading: false, hasFetched: true });
       } else {
-        // No couple found - this is normal for new users
+        console.log('[CoupleStore] No couple found for user');
         set({ couple: null, partnerProfile: null, stats: null, streak: null, isLoading: false, hasFetched: true });
       }
     } catch (error) {
-      console.error('Fetch couple error:', error);
+      console.error('[CoupleStore] Fetch couple exception:', error);
       set({ couple: null, isLoading: false, hasFetched: true });
     }
   },
 
   createCouple: async (userId) => {
     if (!supabase) return { inviteCode: null, error: { message: 'Supabase not configured' } };
+    
+    console.log('[CoupleStore] Creating couple for user:', userId);
     
     try {
       const { data, error } = await supabase
@@ -105,7 +106,12 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
         .select()
         .single();
 
-      if (error) return { inviteCode: null, error };
+      if (error) {
+        console.error('[CoupleStore] Create couple error:', error);
+        return { inviteCode: null, error };
+      }
+
+      console.log('[CoupleStore] Created couple with code:', data.invite_code);
 
       // Create stats entry
       await supabase
@@ -120,6 +126,7 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
       set({ couple: data });
       return { inviteCode: data.invite_code, error: null };
     } catch (error) {
+      console.error('[CoupleStore] Create couple exception:', error);
       return { inviteCode: null, error };
     }
   },
@@ -127,37 +134,67 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
   joinCouple: async (userId, inviteCode) => {
     if (!supabase) return { error: { message: 'Supabase not configured' } };
     
+    const cleanCode = inviteCode.trim().toUpperCase();
+    console.log('[CoupleStore] Joining couple with code:', cleanCode, 'user:', userId);
+    
     try {
-      // Find couple with invite code
+      // First find the couple with this invite code
+      console.log('[CoupleStore] Looking for couple with code:', cleanCode);
       const { data: couple, error: findError } = await supabase
         .from(TABLES.couples)
         .select('*')
-        .eq('invite_code', inviteCode.toUpperCase())
+        .eq('invite_code', cleanCode)
         .eq('status', 'pending')
         .is('partner_b_id', null)
         .maybeSingle();
 
-      if (findError || !couple) {
+      console.log('[CoupleStore] Find result:', couple, 'error:', findError);
+
+      if (findError) {
+        console.error('[CoupleStore] Find couple error:', findError);
+        return { error: { message: 'Error finding invite code: ' + findError.message } };
+      }
+
+      if (!couple) {
+        console.log('[CoupleStore] No couple found with code:', cleanCode);
         return { error: { message: 'Invalid or expired invite code' } };
       }
 
+      // Check if user is trying to join their own couple
+      if (couple.partner_a_id === userId) {
+        return { error: { message: 'You cannot join your own couple!' } };
+      }
+
+      console.log('[CoupleStore] Found couple:', couple.id, 'updating with partner_b:', userId);
+
       // Join the couple
-      const { error } = await supabase
+      const { data: updatedCouple, error: updateError } = await supabase
         .from(TABLES.couples)
         .update({
           partner_b_id: userId,
           status: 'active',
           paired_at: new Date().toISOString(),
         })
-        .eq('id', couple.id);
+        .eq('id', couple.id)
+        .select()
+        .single();
 
-      if (!error) {
-        await get().fetchCouple(userId);
+      console.log('[CoupleStore] Update result:', updatedCouple, 'error:', updateError);
+
+      if (updateError) {
+        console.error('[CoupleStore] Join couple error:', updateError);
+        return { error: { message: 'Failed to join: ' + updateError.message } };
       }
 
-      return { error };
-    } catch (error) {
-      return { error };
+      // Refresh couple data
+      set({ couple: updatedCouple, hasFetched: false });
+      await get().fetchCouple(userId);
+
+      console.log('[CoupleStore] Successfully joined couple!');
+      return { error: null };
+    } catch (error: any) {
+      console.error('[CoupleStore] Join couple exception:', error);
+      return { error: { message: error.message || 'Unknown error joining couple' } };
     }
   },
 
@@ -184,6 +221,7 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
   },
 
   reset: () => {
+    console.log('[CoupleStore] Resetting store');
     set({ couple: null, stats: null, streak: null, partnerProfile: null, isLoading: false, hasFetched: false });
   },
 }));
