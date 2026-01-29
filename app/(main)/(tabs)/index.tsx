@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,14 +6,32 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { SyncScoreRing } from '../../../components/game/SyncScoreRing';
+import { PartnerStatus, PartnerAnsweringIndicator } from '../../../components/ui/PartnerStatus';
 import { useAuthStore } from '../../../stores/authStore';
 import { useCoupleStore } from '../../../stores/coupleStore';
+import { usePresenceStore } from '../../../stores/presenceStore';
 import { colors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
 
 export default function Home() {
   const { user } = useAuthStore();
   const { couple, partnerProfile, stats, streak: streakData } = useCoupleStore();
+  const { initializePresence, updateMyState, isConnected } = usePresenceStore();
+
+  // Initialize presence when we have couple data
+  useEffect(() => {
+    if (user?.id && couple?.id && couple.status === 'active') {
+      const displayName = user.display_name || 'User';
+      initializePresence(user.id, couple.id, displayName);
+    }
+  }, [user?.id, couple?.id, couple?.status]);
+
+  // Update presence state when returning to home
+  useEffect(() => {
+    if (isConnected) {
+      updateMyState('online', 'home');
+    }
+  }, [isConnected]);
 
   // Use real data where available, fallback to defaults
   const syncScore = stats?.sync_score || 0;
@@ -46,6 +64,11 @@ export default function Home() {
             <Text style={styles.names}>
               {userName} & {partnerName}
             </Text>
+            {couple?.status === 'active' && (
+              <View style={styles.partnerStatusRow}>
+                <PartnerStatus partnerName={partnerName} size="small" />
+              </View>
+            )}
           </View>
           <LinearGradient
             colors={['rgba(255,107,107,0.2)', 'rgba(192,132,252,0.2)']}
@@ -54,6 +77,9 @@ export default function Home() {
             <Text style={styles.streakText}>🔥 {streak} days</Text>
           </LinearGradient>
         </View>
+
+        {/* Partner Answering Indicator */}
+        <PartnerAnsweringIndicator partnerName={partnerName} />
 
         {/* Sync Score Ring */}
         <View style={styles.ringContainer}>
@@ -128,7 +154,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 24,
     marginTop: 8,
   },
@@ -140,6 +166,9 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 20,
     color: colors.textPrimary,
+  },
+  partnerStatusRow: {
+    marginTop: 4,
   },
   streakBadge: {
     paddingHorizontal: 14,
