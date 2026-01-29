@@ -146,11 +146,11 @@ export default function FriendInviteLanding() {
   const handleSignIn = () => {
     if (inviteCode) {
       router.push({
-        pathname: '/(auth)/login',
+        pathname: '/(auth)/signin',
         params: { friendInviteCode: inviteCode },
       });
     } else {
-      router.push('/(auth)/login');
+      router.push('/(auth)/signin');
     }
   };
 
