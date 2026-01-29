@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { getSupabase, TABLES } from '../lib/supabase';
+import { getSupabase, TABLES, QuestionCategory } from '../lib/supabase';
 import type { Tables } from '../lib/supabase';
 
 type Couple = Tables['couples'];
@@ -18,6 +18,7 @@ interface CoupleState {
   createCouple: (userId: string) => Promise<{ inviteCode: string | null; error: any }>;
   joinCouple: (userId: string, inviteCode: string) => Promise<{ error: any }>;
   updateCouple: (updates: Partial<Couple>) => Promise<{ error: any }>;
+  updateCategoryPreferences: (categories: QuestionCategory[]) => Promise<{ error: any }>;
   reset: () => void;
 }
 
@@ -220,6 +221,35 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
 
       return { error };
     } catch (error) {
+      return { error };
+    }
+  },
+
+  updateCategoryPreferences: async (categories) => {
+    const supabase = getSupabase();
+    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    
+    const { couple } = get();
+    if (!couple) return { error: { message: 'No couple found' } };
+
+    console.log('[CoupleStore] Updating category preferences:', categories);
+
+    try {
+      const { error } = await supabase
+        .from(TABLES.couples)
+        .update({ preferred_categories: categories })
+        .eq('id', couple.id);
+
+      if (!error) {
+        set({ couple: { ...couple, preferred_categories: categories } });
+        console.log('[CoupleStore] Category preferences updated successfully');
+      } else {
+        console.error('[CoupleStore] Category update error:', error);
+      }
+
+      return { error };
+    } catch (error) {
+      console.error('[CoupleStore] Category update exception:', error);
       return { error };
     }
   },
