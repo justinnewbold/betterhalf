@@ -50,14 +50,16 @@ export default function Invite() {
   const handleShareCode = async () => {
     if (!couple?.invite_code) return;
     
-    const shareMessage = `Join me on Better Half! Use my invite code: ${couple.invite_code}\n\nGo to https://betterhalf.newbold.cloud and enter this code to connect with me.`;
+    const inviteLink = `https://betterhalf.newbold.cloud/invite?code=${couple.invite_code}`;
+    const shareMessage = `💕 Join me on Better Half!\n\nI want us to stay connected with daily questions that help us understand each other better.\n\n🔗 Click to join: ${inviteLink}\n\nOr use code: ${couple.invite_code}`;
     
     // Check if Web Share API is available
     if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
-          title: 'Join me on Better Half!',
+          title: 'Join me on Better Half! 💕',
           text: shareMessage,
+          url: inviteLink,
         });
       } catch (err) {
         // User cancelled or share failed - fallback to clipboard
