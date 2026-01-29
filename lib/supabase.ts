@@ -86,6 +86,8 @@ export const TABLES = {
   users: 'betterhalf_users',
   couples: 'betterhalf_couples',
   questions: 'betterhalf_questions',
+  custom_questions: 'betterhalf_custom_questions',
+  daily_sessions: 'betterhalf_daily_sessions',
   game_sessions: 'betterhalf_game_sessions',
   answers: 'betterhalf_answers',
   streaks: 'betterhalf_streaks',
@@ -95,7 +97,7 @@ export const TABLES = {
 } as const;
 
 // Question category types
-export type QuestionCategory = 'daily_life' | 'heart' | 'history' | 'spice' | 'fun';
+export type QuestionCategory = 'daily_life' | 'heart' | 'history' | 'spice' | 'fun' | 'custom';
 
 export const QUESTION_CATEGORIES: { id: QuestionCategory; label: string; icon: string; description: string }[] = [
   { id: 'daily_life', label: 'Daily Life', icon: '☀️', description: 'Everyday moments and routines' },
@@ -103,6 +105,7 @@ export const QUESTION_CATEGORIES: { id: QuestionCategory; label: string; icon: s
   { id: 'history', label: 'Deep Talks', icon: '💭', description: 'Life stories and meaningful moments' },
   { id: 'spice', label: 'Spicy', icon: '🔥', description: 'Playful and adventurous questions' },
   { id: 'fun', label: 'Fun', icon: '🎉', description: 'Light-hearted and entertaining' },
+  { id: 'custom', label: 'Custom', icon: '✨', description: 'Questions you created together' },
 ];
 
 // Helper types
@@ -134,6 +137,26 @@ export type Tables = {
     question: string;
     options: string[];
     is_active: boolean;
+  };
+  custom_questions: {
+    id: string;
+    couple_id: string;
+    category: 'custom';
+    question: string;
+    options: string[];
+    created_by: string;
+    is_active: boolean;
+    created_at: string;
+  };
+  daily_sessions: {
+    id: string;
+    couple_id: string;
+    question_id: string;
+    user_a_answer: number | null;
+    user_b_answer: number | null;
+    is_match: boolean | null;
+    completed_at: string | null;
+    created_at: string;
   };
   game_sessions: {
     id: string;
@@ -187,3 +210,17 @@ export type Tables = {
     updated_at: string;
   };
 };
+
+// History item type for the history feature
+export interface HistoryItem {
+  id: string;
+  question_id: string;
+  question_text: string;
+  question_category: QuestionCategory;
+  options: string[];
+  user_a_answer: number | null;
+  user_b_answer: number | null;
+  is_match: boolean | null;
+  completed_at: string;
+  created_at: string;
+}
