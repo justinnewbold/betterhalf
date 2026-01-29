@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase, TABLES } from '../lib/supabase';
+import { supabase, TABLES, QuestionCategory } from '../lib/supabase';
 import type { Tables } from '../lib/supabase';
 
 type Question = Tables['questions'];
@@ -17,7 +17,7 @@ interface GameState {
   isLoading: boolean;
   
   startGame: (coupleId: string, mode: GameMode) => Promise<{ error: any }>;
-  loadQuestions: (category?: string) => Promise<void>;
+  loadQuestions: (categories?: QuestionCategory[]) => Promise<void>;
   submitAnswer: (questionId: string, userId: string, selectedOption: number) => Promise<{ error: any }>;
   completeGame: () => Promise<{ score: number; matched: number; error: any }>;
   nextQuestion: () => void;
@@ -71,7 +71,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
-  loadQuestions: async (category) => {
+  loadQuestions: async (categories) => {
     try {
       if (!supabase) return;
       
@@ -83,17 +83,25 @@ export const useGameStore = create<GameState>((set, get) => ({
         .select('*')
         .eq('is_active', true);
 
-      if (category) {
-        query = query.eq('category', category);
+      // Filter by categories if provided
+      if (categories && categories.length > 0) {
+        console.log('[GameStore] Loading questions for categories:', categories);
+        query = query.in('category', categories);
       }
 
-      const { data } = await query.limit(limit);
+      const { data, error } = await query.limit(limit * 2); // Get more to have variety after shuffle
 
-      // Shuffle questions
-      const shuffled = (data || []).sort(() => Math.random() - 0.5);
+      if (error) {
+        console.error('[GameStore] Load questions error:', error);
+        return;
+      }
+
+      // Shuffle questions and take the needed amount
+      const shuffled = (data || []).sort(() => Math.random() - 0.5).slice(0, limit);
+      console.log('[GameStore] Loaded', shuffled.length, 'questions');
       set({ questions: shuffled });
     } catch (error) {
-      console.error('Load questions error:', error);
+      console.error('[GameStore] Load questions exception:', error);
     }
   },
 
