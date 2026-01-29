@@ -94,6 +94,17 @@ export const TABLES = {
   couple_stats: 'betterhalf_couple_stats',
 } as const;
 
+// Question category types
+export type QuestionCategory = 'daily_life' | 'heart' | 'history' | 'spice' | 'fun';
+
+export const QUESTION_CATEGORIES: { id: QuestionCategory; label: string; icon: string; description: string }[] = [
+  { id: 'daily_life', label: 'Daily Life', icon: '☀️', description: 'Everyday moments and routines' },
+  { id: 'heart', label: 'Romance', icon: '💕', description: 'Love, affection, and intimacy' },
+  { id: 'history', label: 'Deep Talks', icon: '💭', description: 'Life stories and meaningful moments' },
+  { id: 'spice', label: 'Spicy', icon: '🔥', description: 'Playful and adventurous questions' },
+  { id: 'fun', label: 'Fun', icon: '🎉', description: 'Light-hearted and entertaining' },
+];
+
 // Helper types
 export type Tables = {
   users: {
@@ -112,12 +123,13 @@ export type Tables = {
     status: 'pending' | 'active' | 'paused';
     anniversary_date: string | null;
     relationship_stage: string;
+    preferred_categories: QuestionCategory[];
     created_at: string;
     paired_at: string | null;
   };
   questions: {
     id: string;
-    category: 'daily_life' | 'heart' | 'history' | 'spice' | 'fun';
+    category: QuestionCategory;
     difficulty: 'easy' | 'medium' | 'hard' | 'expert';
     question: string;
     options: string[];
