@@ -150,6 +150,16 @@ export default function Settings() {
           />
         </Card>
 
+        {/* Game Settings */}
+        <Card style={styles.card}>
+          <Text style={styles.sectionTitle}>Game</Text>
+          <MenuItem 
+            icon="🎯" 
+            label="Question Categories" 
+            onPress={() => router.push('/(main)/settings/categories')} 
+          />
+        </Card>
+
         {/* Partner Connection */}
         {couple && (
           <Card style={styles.card}>
