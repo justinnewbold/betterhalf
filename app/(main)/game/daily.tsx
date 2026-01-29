@@ -12,6 +12,7 @@ import { usePresenceStore } from '../../../stores/presenceStore';
 import { PartnerAnsweringIndicator } from '../../../components/ui/PartnerStatus';
 import { getSupabase, TABLES } from '../../../lib/supabase';
 import { colors } from '../../../constants/colors';
+import { Confetti, CelebrationBurst } from '../../../components/ui/Confetti';
 import { typography, fontFamilies } from '../../../constants/typography';
 
 type GamePhase = 'loading' | 'question' | 'waiting' | 'reveal' | 'results' | 'already_played' | 'error';
@@ -46,6 +47,8 @@ export default function DailySync() {
   const [selectedOption, setSelectedOption] = useState<number | undefined>();
   const [partnerOption, setPartnerOption] = useState<number | undefined>();
   const [isMatch, setIsMatch] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [showBurst, setShowBurst] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncScore, setSyncScore] = useState(0);
   const [todayStats, setTodayStats] = useState({ matched: 0, total: 1 });
@@ -557,6 +560,15 @@ export default function DailySync() {
           </View>
         </View>
       )}
+      {/* Celebration Animations */}
+      {showConfetti && (
+        <Confetti 
+          count={60} 
+          duration={3500}
+          onComplete={() => setShowConfetti(false)}
+        />
+      )}
+      <CelebrationBurst show={showBurst} color={isMatch ? '#4ADE80' : '#C084FC'} />
     </SafeAreaView>
   );
 }
