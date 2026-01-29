@@ -3,21 +3,31 @@ import { supabase, TABLES, QuestionCategory } from '../lib/supabase';
 import type { Tables } from '../lib/supabase';
 
 type Question = Tables['questions'];
+type CustomQuestion = Tables['custom_questions'];
 type GameSession = Tables['game_sessions'];
 type Answer = Tables['answers'];
+
+// Union type for both regular and custom questions
+type GameQuestion = {
+  id: string;
+  category: QuestionCategory;
+  question: string;
+  options: string[];
+  isCustom?: boolean;
+};
 
 type GameMode = 'daily_sync' | 'date_night' | 'party_battle';
 
 interface GameState {
   currentSession: GameSession | null;
-  questions: Question[];
+  questions: GameQuestion[];
   currentQuestionIndex: number;
   myAnswers: Record<string, number>;
   partnerAnswers: Record<string, number>;
   isLoading: boolean;
   
   startGame: (coupleId: string, mode: GameMode) => Promise<{ error: any }>;
-  loadQuestions: (categories?: QuestionCategory[]) => Promise<void>;
+  loadQuestions: (coupleId: string, categories?: QuestionCategory[]) => Promise<void>;
   submitAnswer: (questionId: string, userId: string, selectedOption: number) => Promise<{ error: any }>;
   completeGame: () => Promise<{ score: number; matched: number; error: any }>;
   nextQuestion: () => void;
@@ -62,7 +72,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       });
 
       // Load questions for the game
-      await get().loadQuestions();
+      await get().loadQuestions(coupleId);
 
       return { error: null };
     } catch (error) {
@@ -71,34 +81,77 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
-  loadQuestions: async (categories) => {
+  loadQuestions: async (coupleId, categories) => {
     try {
       if (!supabase) return;
       
       const { currentSession } = get();
       const limit = currentSession?.total_questions || 5;
 
-      let query = supabase
+      // Load regular questions
+      let regularQuery = supabase
         .from(TABLES.questions)
         .select('*')
         .eq('is_active', true);
 
-      // Filter by categories if provided
-      if (categories && categories.length > 0) {
-        console.log('[GameStore] Loading questions for categories:', categories);
-        query = query.in('category', categories);
+      // Filter by categories if provided (exclude 'custom' from regular query)
+      const regularCategories = categories?.filter(c => c !== 'custom') || [];
+      if (regularCategories.length > 0) {
+        console.log('[GameStore] Loading questions for categories:', regularCategories);
+        regularQuery = regularQuery.in('category', regularCategories);
       }
 
-      const { data, error } = await query.limit(limit * 2); // Get more to have variety after shuffle
+      const { data: regularQuestions, error: regularError } = await regularQuery.limit(limit * 2);
 
-      if (error) {
-        console.error('[GameStore] Load questions error:', error);
-        return;
+      if (regularError) {
+        console.error('[GameStore] Load regular questions error:', regularError);
       }
 
-      // Shuffle questions and take the needed amount
-      const shuffled = (data || []).sort(() => Math.random() - 0.5).slice(0, limit);
-      console.log('[GameStore] Loaded', shuffled.length, 'questions');
+      // Load custom questions if 'custom' category is enabled or no categories specified
+      let customQuestions: CustomQuestion[] = [];
+      const includeCustom = !categories || categories.length === 0 || categories.includes('custom');
+      
+      if (includeCustom && coupleId) {
+        console.log('[GameStore] Loading custom questions for couple:', coupleId);
+        const { data: customData, error: customError } = await supabase
+          .from(TABLES.custom_questions)
+          .select('*')
+          .eq('couple_id', coupleId)
+          .eq('is_active', true);
+
+        if (customError) {
+          console.error('[GameStore] Load custom questions error:', customError);
+        } else {
+          customQuestions = customData || [];
+          console.log('[GameStore] Found', customQuestions.length, 'custom questions');
+        }
+      }
+
+      // Transform questions to unified format
+      const transformedRegular: GameQuestion[] = (regularQuestions || []).map(q => ({
+        id: q.id,
+        category: q.category as QuestionCategory,
+        question: q.question,
+        options: q.options as string[],
+        isCustom: false,
+      }));
+
+      const transformedCustom: GameQuestion[] = customQuestions.map(q => ({
+        id: q.id,
+        category: 'custom' as QuestionCategory,
+        question: q.question,
+        options: q.options as string[],
+        isCustom: true,
+      }));
+
+      // Combine and shuffle all questions
+      const allQuestions = [...transformedRegular, ...transformedCustom];
+      const shuffled = allQuestions.sort(() => Math.random() - 0.5).slice(0, limit);
+      
+      console.log('[GameStore] Loaded', shuffled.length, 'total questions (',
+        transformedCustom.length, 'custom,',
+        transformedRegular.length, 'regular)');
+      
       set({ questions: shuffled });
     } catch (error) {
       console.error('[GameStore] Load questions exception:', error);
