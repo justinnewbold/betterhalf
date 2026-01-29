@@ -10,7 +10,7 @@ import { useAuthStore } from '../../../stores/authStore';
 import { useCoupleStore } from '../../../stores/coupleStore';
 import { usePresenceStore } from '../../../stores/presenceStore';
 import { PartnerAnsweringIndicator } from '../../../components/ui/PartnerStatus';
-import { getSupabase, TABLES } from '../../../lib/supabase';
+import { getSupabase, TABLES, QuestionCategory } from '../../../lib/supabase';
 import { colors } from '../../../constants/colors';
 import { Confetti, CelebrationBurst } from '../../../components/ui/Confetti';
 import { typography, fontFamilies } from '../../../constants/typography';
@@ -153,22 +153,33 @@ export default function DailySync() {
     if (!supabase || !couple?.id) return;
 
     try {
-      // Get a random question
-      const { data: questions, error: qError } = await supabase
+      // Get couple's preferred categories (default to all if not set)
+      const preferredCategories = couple.preferred_categories as QuestionCategory[] | null;
+      
+      // Build query for questions
+      let query = supabase
         .from(TABLES.questions)
         .select('*')
-        .eq('is_active', true)
-        .limit(50);
+        .eq('is_active', true);
+
+      // Filter by preferred categories if set
+      if (preferredCategories && preferredCategories.length > 0) {
+        console.log('[DailySync] Filtering by categories:', preferredCategories);
+        query = query.in('category', preferredCategories);
+      }
+
+      const { data: questions, error: qError } = await query.limit(50);
 
       if (qError) throw qError;
       if (!questions || questions.length === 0) {
-        setError('No questions available');
+        setError('No questions available for selected categories');
         setPhase('error');
         return;
       }
 
       // Pick random question
       const randomQuestion = questions[Math.floor(Math.random() * questions.length)];
+      console.log('[DailySync] Selected question from category:', randomQuestion.category);
       
       // Create session
       const { data: newSession, error: createError } = await supabase
