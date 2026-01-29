@@ -3,7 +3,7 @@ import {
   friendRealtimeService, 
   FriendGameUpdate, 
   FriendActivityUpdate 
-} from '@/lib/friendRealtimeService';
+} from '../lib/friendRealtimeService';
 
 /**
  * Hook to subscribe to real-time updates for a specific friend game
@@ -85,35 +85,46 @@ export function useFriendActivity(
     return () => {
       unsubscribe();
     };
-  }, [JSON.stringify(friendIds)]);
+  }, [friendIds]);
 }
 
 /**
- * Hook to track the current user's presence
- * Use this in the main app or friends tab
+ * Hook to track current user's presence
+ * Call this in the main app layout to keep presence active
  */
 export function useTrackPresence(userId: string | null) {
   useEffect(() => {
     if (!userId) return;
 
-    let cleanup: (() => void) | undefined;
-
-    friendRealtimeService.trackPresence(userId).then((untrack) => {
-      cleanup = untrack;
-    });
+    const cleanup = friendRealtimeService.trackPresence(userId);
 
     return () => {
-      cleanup?.();
+      cleanup();
     };
   }, [userId]);
 }
 
 /**
- * Hook to clean up all realtime subscriptions
- * Use this on logout
+ * Hook to clean up all subscriptions on logout
+ * Call this when user logs out
  */
 export function useRealtimeCleanup() {
   return useCallback(() => {
     friendRealtimeService.cleanup();
   }, []);
+}
+
+/**
+ * Combined hook for the friends list screen
+ * Provides all friend game updates and activity tracking
+ */
+export function useFriendsListRealtime(
+  userId: string | null,
+  friendIds: string[],
+  onGameUpdate: (update: FriendGameUpdate) => void,
+  onActivityUpdate: (update: FriendActivityUpdate) => void
+) {
+  useAllFriendGameUpdates(userId, onGameUpdate);
+  useFriendActivity(friendIds, onActivityUpdate);
+  useTrackPresence(userId);
 }
