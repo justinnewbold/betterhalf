@@ -8,6 +8,8 @@ import { Card } from '../../../components/ui/Card';
 import { SyncScoreRing } from '../../../components/game/SyncScoreRing';
 import { useAuthStore } from '../../../stores/authStore';
 import { useCoupleStore } from '../../../stores/coupleStore';
+import { usePresenceStore } from '../../../stores/presenceStore';
+import { PartnerAnsweringIndicator } from '../../../components/ui/PartnerStatus';
 import { getSupabase, TABLES } from '../../../lib/supabase';
 import { colors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
@@ -36,6 +38,7 @@ interface GameSession {
 export default function DailySync() {
   const { user } = useAuthStore();
   const { couple, partnerProfile, streak: streakData, fetchCouple } = useCoupleStore();
+  const { updateMyState, partnerState, partnerCurrentScreen } = usePresenceStore();
   
   const [phase, setPhase] = useState<GamePhase>('loading');
   const [question, setQuestion] = useState<Question | null>(null);
@@ -49,6 +52,14 @@ export default function DailySync() {
 
   const partnerName = partnerProfile?.display_name || 'Partner';
   const isPartnerA = couple?.partner_a_id === user?.id;
+
+  // Update presence when entering/leaving game
+  useEffect(() => {
+    updateMyState('playing', 'daily');
+    return () => {
+      updateMyState('online', 'home');
+    };
+  }, []);
 
   // Load or create today's game session
   useEffect(() => {
@@ -455,10 +466,18 @@ export default function DailySync() {
       {phase === 'waiting' && question && (
         <View style={styles.centerContent}>
           <View style={styles.waitingIcon}>
-            <Text style={styles.waitingEmoji}>⏳</Text>
+            <Text style={styles.waitingEmoji}>
+              {partnerState === 'playing' && partnerCurrentScreen === 'daily' ? '💭' : '⏳'}
+            </Text>
           </View>
           <Text style={styles.waitingTitle}>Waiting for {partnerName}</Text>
-          <Text style={styles.waitingSubtitle}>They're still answering...</Text>
+          {partnerState === 'playing' && partnerCurrentScreen === 'daily' ? (
+            <PartnerAnsweringIndicator partnerName={partnerName} />
+          ) : (
+            <Text style={styles.waitingSubtitle}>
+              {partnerState === 'online' ? "They're online but haven't started yet" : "We'll notify you when they answer"}
+            </Text>
+          )}
           
           <Card style={styles.yourAnswerCard}>
             <Text style={styles.yourAnswerLabel}>YOUR ANSWER</Text>
