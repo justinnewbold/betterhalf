@@ -94,6 +94,9 @@ export const TABLES = {
   achievements: 'betterhalf_achievements',
   user_achievements: 'betterhalf_user_achievements',
   couple_stats: 'betterhalf_couple_stats',
+  // Friends & Family Mode tables
+  friends: 'betterhalf_friends',
+  friend_games: 'betterhalf_friend_games',
 } as const;
 
 // Question category types
@@ -107,6 +110,28 @@ export const QUESTION_CATEGORIES: { id: QuestionCategory; label: string; icon: s
   { id: 'fun', label: 'Fun', icon: '🎉', description: 'Light-hearted and entertaining' },
   { id: 'custom', label: 'Custom', icon: '✨', description: 'Questions you created together' },
 ];
+
+// Friend/Family relationship types
+export type RelationshipType = 'friend' | 'family' | 'sibling' | 'parent' | 'child' | 'cousin' | 'other';
+
+export const RELATIONSHIP_TYPES: { id: RelationshipType; label: string; icon: string }[] = [
+  { id: 'friend', label: 'Friend', icon: '👫' },
+  { id: 'family', label: 'Family', icon: '👨‍👩‍👧‍👦' },
+  { id: 'sibling', label: 'Sibling', icon: '👯' },
+  { id: 'parent', label: 'Parent', icon: '👨‍👧' },
+  { id: 'child', label: 'Child', icon: '👶' },
+  { id: 'cousin', label: 'Cousin', icon: '🤝' },
+  { id: 'other', label: 'Other', icon: '💫' },
+];
+
+// Friend status types
+export type FriendStatus = 'pending' | 'accepted' | 'declined' | 'blocked';
+
+// Categories appropriate for friends (excludes romance/spicy)
+export const FRIEND_SAFE_CATEGORIES: QuestionCategory[] = ['daily_life', 'history', 'fun', 'custom'];
+
+// Categories appropriate for family (excludes romance/spicy)
+export const FAMILY_SAFE_CATEGORIES: QuestionCategory[] = ['daily_life', 'history', 'fun', 'custom'];
 
 // Helper types
 export type Tables = {
@@ -209,6 +234,38 @@ export type Tables = {
     favorite_category: string | null;
     updated_at: string;
   };
+  // Friends & Family Mode types
+  friends: {
+    id: string;
+    user_id: string;
+    friend_id: string | null;
+    nickname: string | null;
+    relationship_type: RelationshipType;
+    status: FriendStatus;
+    invite_code: string | null;
+    invite_expires_at: string | null;
+    preferred_categories: QuestionCategory[];
+    daily_limit: number;
+    created_at: string;
+    accepted_at: string | null;
+    updated_at: string;
+  };
+  friend_games: {
+    id: string;
+    friendship_id: string;
+    question_id: string;
+    game_date: string;
+    question_number: number;
+    status: 'waiting_initiator' | 'waiting_friend' | 'waiting_both' | 'completed' | 'expired' | 'skipped';
+    initiator_answer: number | null;
+    friend_answer: number | null;
+    is_match: boolean | null;
+    initiator_answered_at: string | null;
+    friend_answered_at: string | null;
+    created_at: string;
+    completed_at: string | null;
+    expires_at: string | null;
+  };
 };
 
 // History item type for the history feature
@@ -224,3 +281,64 @@ export interface HistoryItem {
   completed_at: string;
   created_at: string;
 }
+
+// Friend with user details (joined data)
+export interface FriendWithUser {
+  id: string;
+  user_id: string;
+  friend_id: string | null;
+  nickname: string | null;
+  relationship_type: RelationshipType;
+  status: FriendStatus;
+  invite_code: string | null;
+  preferred_categories: QuestionCategory[];
+  daily_limit: number;
+  created_at: string;
+  accepted_at: string | null;
+  // Joined user data (friend's profile)
+  friend_user?: {
+    id: string;
+    display_name: string | null;
+    avatar_url: string | null;
+    email: string;
+  };
+  // Count of active games today
+  active_games_count?: number;
+  // Count of games waiting for response
+  pending_response_count?: number;
+}
+
+// Friend game with question details (joined data)
+export interface FriendGameWithQuestion {
+  id: string;
+  friendship_id: string;
+  question_id: string;
+  game_date: string;
+  question_number: number;
+  status: 'waiting_initiator' | 'waiting_friend' | 'waiting_both' | 'completed' | 'expired' | 'skipped';
+  initiator_answer: number | null;
+  friend_answer: number | null;
+  is_match: boolean | null;
+  initiator_answered_at: string | null;
+  friend_answered_at: string | null;
+  created_at: string;
+  completed_at: string | null;
+  // Joined question data
+  question?: {
+    id: string;
+    category: QuestionCategory;
+    question: string;
+    options: string[];
+  };
+}
+
+// Helper to generate 8-character invite code
+export function generateInviteCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluded confusing chars (0, O, I, 1)
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
