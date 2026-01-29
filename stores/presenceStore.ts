@@ -5,7 +5,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 type PresenceState = 'online' | 'away' | 'playing' | 'offline';
 
 interface PresencePayload {
-  odwuD_id: string;
+  user_id: string;
   display_name: string;
   state: PresenceState;
   current_screen?: string;
@@ -13,20 +13,13 @@ interface PresencePayload {
 }
 
 interface PresenceStore {
-  // My presence
   myState: PresenceState;
   currentScreen: string;
-  
-  // Partner presence
   partnerState: PresenceState;
   partnerLastSeen: string | null;
   partnerCurrentScreen: string | null;
-  
-  // Channel management
   channel: RealtimeChannel | null;
   isConnected: boolean;
-  
-  // Actions
   initializePresence: (userId: string, coupleId: string, displayName: string) => void;
   updateMyState: (state: PresenceState, screen?: string) => void;
   disconnect: () => void;
@@ -49,7 +42,6 @@ export const usePresenceStore = create<PresenceStore>((set, get) => ({
       return;
     }
 
-    // Disconnect existing channel if any
     const existingChannel = get().channel;
     if (existingChannel) {
       supabase.removeChannel(existingChannel);
@@ -57,7 +49,6 @@ export const usePresenceStore = create<PresenceStore>((set, get) => ({
 
     console.log('[Presence] Initializing for couple:', coupleId);
 
-    // Create a presence channel for the couple
     const channel = supabase.channel(`couple:${coupleId}`, {
       config: {
         presence: {
@@ -66,12 +57,10 @@ export const usePresenceStore = create<PresenceStore>((set, get) => ({
       },
     });
 
-    // Handle presence sync (initial state)
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState();
       console.log('[Presence] Sync:', state);
       
-      // Find partner's presence (not our own)
       const presenceEntries = Object.entries(state);
       for (const [key, value] of presenceEntries) {
         if (key !== userId && Array.isArray(value) && value.length > 0) {
@@ -85,7 +74,6 @@ export const usePresenceStore = create<PresenceStore>((set, get) => ({
       }
     });
 
-    // Handle partner joining
     channel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
       console.log('[Presence] Join:', key, newPresences);
       if (key !== userId && newPresences.length > 0) {
@@ -98,7 +86,6 @@ export const usePresenceStore = create<PresenceStore>((set, get) => ({
       }
     });
 
-    // Handle partner leaving
     channel.on('presence', { event: 'leave' }, ({ key }) => {
       console.log('[Presence] Leave:', key);
       if (key !== userId) {
@@ -110,11 +97,9 @@ export const usePresenceStore = create<PresenceStore>((set, get) => ({
       }
     });
 
-    // Subscribe to the channel
     channel.subscribe(async (status) => {
       console.log('[Presence] Channel status:', status);
       if (status === 'SUBSCRIBED') {
-        // Track my presence
         await channel.track({
           user_id: userId,
           display_name: displayName,
@@ -122,7 +107,6 @@ export const usePresenceStore = create<PresenceStore>((set, get) => ({
           current_screen: 'home',
           last_seen: new Date().toISOString(),
         });
-        
         set({ isConnected: true, myState: 'online' });
       }
     });
@@ -142,7 +126,6 @@ export const usePresenceStore = create<PresenceStore>((set, get) => ({
         current_screen: newScreen,
         last_seen: new Date().toISOString(),
       });
-      
       set({ myState: state, currentScreen: newScreen });
     } catch (error) {
       console.error('[Presence] Failed to update state:', error);
@@ -158,12 +141,7 @@ export const usePresenceStore = create<PresenceStore>((set, get) => ({
       supabase.removeChannel(channel);
     }
     
-    set({
-      channel: null,
-      isConnected: false,
-      myState: 'offline',
-      partnerState: 'offline',
-    });
+    set({ channel: null, isConnected: false, myState: 'offline', partnerState: 'offline' });
   },
 
   reset: () => {
