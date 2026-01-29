@@ -100,7 +100,7 @@ export const TABLES = {
 } as const;
 
 // Question category types
-export type QuestionCategory = 'daily_life' | 'heart' | 'history' | 'spice' | 'fun' | 'custom';
+export type QuestionCategory = 'daily_life' | 'heart' | 'history' | 'spice' | 'fun' | 'deep_talks' | 'custom';
 
 export const QUESTION_CATEGORIES: { id: QuestionCategory; label: string; icon: string; description: string }[] = [
   { id: 'daily_life', label: 'Daily Life', icon: '☀️', description: 'Everyday moments and routines' },
@@ -108,6 +108,7 @@ export const QUESTION_CATEGORIES: { id: QuestionCategory; label: string; icon: s
   { id: 'history', label: 'Deep Talks', icon: '💭', description: 'Life stories and meaningful moments' },
   { id: 'spice', label: 'Spicy', icon: '🔥', description: 'Playful and adventurous questions' },
   { id: 'fun', label: 'Fun', icon: '🎉', description: 'Light-hearted and entertaining' },
+  { id: 'deep_talks', label: 'Deep Conversations', icon: '💬', description: 'Meaningful questions about life' },
   { id: 'custom', label: 'Custom', icon: '✨', description: 'Questions you created together' },
 ];
 
@@ -128,10 +129,10 @@ export const RELATIONSHIP_TYPES: { id: RelationshipType; label: string; icon: st
 export type FriendStatus = 'pending' | 'accepted' | 'declined' | 'blocked';
 
 // Categories appropriate for friends (excludes romance/spicy)
-export const FRIEND_SAFE_CATEGORIES: QuestionCategory[] = ['daily_life', 'history', 'fun', 'custom'];
+export const FRIEND_SAFE_CATEGORIES: QuestionCategory[] = ['daily_life', 'history', 'fun', 'deep_talks', 'custom'];
 
 // Categories appropriate for family (excludes romance/spicy)
-export const FAMILY_SAFE_CATEGORIES: QuestionCategory[] = ['daily_life', 'history', 'fun', 'custom'];
+export const FAMILY_SAFE_CATEGORIES: QuestionCategory[] = ['daily_life', 'history', 'fun', 'deep_talks', 'custom'];
 
 // Helper types
 export type Tables = {
@@ -345,4 +346,5 @@ export function generateInviteCode(): string {
   }
   return code;
 }
+
 
