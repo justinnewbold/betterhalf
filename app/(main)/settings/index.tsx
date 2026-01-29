@@ -143,6 +143,11 @@ export default function Settings() {
             label="Edit Profile" 
             onPress={() => router.push('/(main)/settings/edit-profile')} 
           />
+          <MenuItem 
+            icon="🔔" 
+            label="Notifications" 
+            onPress={() => router.push('/(main)/settings/notifications')} 
+          />
         </Card>
 
         {/* Partner Connection */}
