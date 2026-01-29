@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useCoupleStore } from '../../../stores/coupleStore';
 import { QUESTION_CATEGORIES, QuestionCategory } from '../../../lib/supabase';
+import { colors } from '../../../constants/colors';
+import { typography, fontFamilies } from '../../../constants/typography';
+import { Card } from '../../../components/ui/Card';
+import { Button } from '../../../components/ui/Button';
 
 export default function CategoriesScreen() {
   const router = useRouter();
@@ -13,25 +16,28 @@ export default function CategoriesScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (couple?.preferred_categories) {
+    if (couple?.preferred_categories && couple.preferred_categories.length > 0) {
       setSelectedCategories(couple.preferred_categories as QuestionCategory[]);
     } else {
-      // Default to all categories
-      setSelectedCategories(Object.keys(QUESTION_CATEGORIES) as QuestionCategory[]);
+      // Default to all categories except custom (user might not have custom questions yet)
+      const defaultCategories = QUESTION_CATEGORIES
+        .filter(c => c.id !== 'custom')
+        .map(c => c.id);
+      setSelectedCategories(defaultCategories);
     }
   }, [couple]);
 
-  const toggleCategory = (category: QuestionCategory) => {
+  const toggleCategory = (categoryId: QuestionCategory) => {
     setSelectedCategories(prev => {
-      if (prev.includes(category)) {
+      if (prev.includes(categoryId)) {
         // Don't allow removing if it's the last one
         if (prev.length === 1) {
           Alert.alert('At least one category required', 'You need at least one question category selected.');
           return prev;
         }
-        return prev.filter(c => c !== category);
+        return prev.filter(c => c !== categoryId);
       } else {
-        return [...prev, category];
+        return [...prev, categoryId];
       }
     });
   };
@@ -56,67 +62,88 @@ export default function CategoriesScreen() {
     return !selectedCategories.every(c => currentCategories.includes(c));
   };
 
+  const handleClose = () => {
+    router.back();
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
+        <TouchableOpacity onPress={handleClose}>
+          <Text style={styles.closeButton}>✕</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Question Categories</Text>
-        <View style={styles.placeholder} />
+        <Text style={styles.headerTitle}>Question Categories</Text>
+        <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <Text style={styles.description}>
           Choose which types of questions you'd like to see in your daily sync. 
           Both you and your partner will answer questions from these categories.
         </Text>
 
         <View style={styles.categoriesContainer}>
-          {(Object.entries(QUESTION_CATEGORIES) as [QuestionCategory, typeof QUESTION_CATEGORIES[QuestionCategory]][]).map(([key, category]) => {
-            const isSelected = selectedCategories.includes(key);
+          {QUESTION_CATEGORIES.map((category) => {
+            const isSelected = selectedCategories.includes(category.id);
             return (
               <TouchableOpacity
-                key={key}
-                style={[styles.categoryCard, isSelected && styles.categoryCardSelected]}
-                onPress={() => toggleCategory(key)}
-                activeOpacity={0.7}
+                key={category.id}
+                activeOpacity={0.8}
+                onPress={() => toggleCategory(category.id)}
               >
-                <View style={styles.categoryHeader}>
-                  <Text style={styles.categoryIcon}>{category.icon}</Text>
-                  <View style={styles.checkbox}>
-                    {isSelected && <Ionicons name="checkmark" size={18} color="#fff" />}
+                <Card style={[
+                  styles.categoryCard, 
+                  isSelected && styles.categoryCardSelected
+                ]}>
+                  <View style={styles.categoryHeader}>
+                    <Text style={styles.categoryIcon}>{category.icon}</Text>
+                    <View style={[
+                      styles.checkbox,
+                      isSelected && styles.checkboxSelected
+                    ]}>
+                      {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                    </View>
                   </View>
-                </View>
-                <Text style={[styles.categoryLabel, isSelected && styles.categoryLabelSelected]}>
-                  {category.label}
-                </Text>
-                <Text style={[styles.categoryDescription, isSelected && styles.categoryDescriptionSelected]}>
-                  {category.description}
-                </Text>
+                  <Text style={[
+                    styles.categoryLabel, 
+                    isSelected && styles.categoryLabelSelected
+                  ]}>
+                    {category.label}
+                  </Text>
+                  <Text style={styles.categoryDescription}>
+                    {category.description}
+                  </Text>
+                  {category.id === 'custom' && (
+                    <TouchableOpacity 
+                      style={styles.manageLink}
+                      onPress={() => router.push('/(main)/settings/custom-questions')}
+                    >
+                      <Text style={styles.manageLinkText}>
+                        Manage custom questions →
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </Card>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        <View style={styles.infoBox}>
-          <Ionicons name="information-circle-outline" size={20} color="#666" />
+        <Card variant="gradient" style={styles.infoCard}>
+          <Text style={styles.infoTitle}>💡 Good to know</Text>
           <Text style={styles.infoText}>
             Changes will apply to new questions. Your current daily question won't be affected.
           </Text>
-        </View>
+        </Card>
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.saveButton, (!hasChanges() || isSaving) && styles.saveButtonDisabled]}
+        <Button
+          title={isSaving ? 'Saving...' : 'Save Preferences'}
           onPress={handleSave}
           disabled={!hasChanges() || isSaving}
-        >
-          <Text style={styles.saveButtonText}>
-            {isSaving ? 'Saving...' : 'Save Preferences'}
-          </Text>
-        </TouchableOpacity>
+          fullWidth
+        />
       </View>
     </SafeAreaView>
   );
@@ -125,102 +152,113 @@ export default function CategoriesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF5F5',
+    backgroundColor: colors.darkBg,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#FFE4E4',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
-  backButton: {
-    padding: 8,
+  closeButton: {
+    fontSize: 20,
+    color: colors.textMuted,
+    padding: 4,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+  headerTitle: {
+    fontFamily: fontFamilies.bodySemiBold,
+    fontSize: 17,
+    color: colors.textPrimary,
   },
-  placeholder: {
-    width: 40,
+  scroll: {
+    flex: 1,
   },
   content: {
-    flex: 1,
     paddingHorizontal: 20,
+    paddingBottom: 120,
   },
   description: {
-    fontSize: 15,
-    color: '#666',
-    lineHeight: 22,
-    marginTop: 20,
+    ...typography.body,
+    color: colors.textSecondary,
+    lineHeight: 24,
     marginBottom: 24,
   },
   categoriesContainer: {
     gap: 12,
   },
   categoryCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: '#eee',
+    marginBottom: 0,
   },
   categoryCardSelected: {
-    borderColor: '#FF6B6B',
-    backgroundColor: '#FFF0F0',
+    borderColor: colors.coral,
+    borderWidth: 2,
   },
   categoryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   categoryIcon: {
-    fontSize: 28,
+    fontSize: 32,
   },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#ddd',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  checkboxSelected: {
+    backgroundColor: colors.coral,
+    borderColor: colors.coral,
+  },
+  checkmark: {
+    color: colors.textPrimary,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   categoryLabel: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
+    fontFamily: fontFamilies.bodySemiBold,
+    fontSize: 18,
+    color: colors.textPrimary,
+    marginBottom: 6,
   },
   categoryLabelSelected: {
-    color: '#FF6B6B',
+    color: colors.coral,
   },
   categoryDescription: {
-    fontSize: 14,
-    color: '#888',
+    ...typography.bodySmall,
+    color: colors.textMuted,
     lineHeight: 20,
   },
-  categoryDescriptionSelected: {
-    color: '#666',
+  manageLink: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
   },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#f5f5f5',
-    padding: 12,
-    borderRadius: 12,
+  manageLinkText: {
+    ...typography.captionBold,
+    color: colors.purpleLight,
+  },
+  infoCard: {
     marginTop: 24,
-    marginBottom: 100,
-    gap: 8,
+  },
+  infoTitle: {
+    fontFamily: fontFamilies.bodySemiBold,
+    fontSize: 14,
+    color: colors.textPrimary,
+    marginBottom: 6,
   },
   infoText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#666',
-    lineHeight: 18,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
   footer: {
     position: 'absolute',
@@ -228,22 +266,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 20,
-    backgroundColor: '#FFF5F5',
+    paddingBottom: 34,
+    backgroundColor: colors.darkBg,
     borderTopWidth: 1,
-    borderTopColor: '#FFE4E4',
-  },
-  saveButton: {
-    backgroundColor: '#FF6B6B',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    borderTopColor: 'rgba(255,255,255,0.1)',
   },
 });
