@@ -162,6 +162,10 @@ export type Tables = {
     question: string;
     options: string[];
     is_active: boolean;
+    // Audience flags for Friends & Family mode
+    for_couples: boolean;
+    for_friends: boolean;
+    for_family: boolean;
   };
   custom_questions: {
     id: string;
