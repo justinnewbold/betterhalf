@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,14 +11,17 @@ import { useAuthStore } from '../../../stores/authStore';
 import { useCoupleStore } from '../../../stores/coupleStore';
 import { usePresenceStore } from '../../../stores/presenceStore';
 import { useNotificationStore } from '../../../stores/notificationStore';
+import { useFriendsStore } from '../../../stores/friendsStore';
 import { colors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
+import { RELATIONSHIP_TYPES } from '../../../lib/supabase';
 
 export default function Home() {
   const { user } = useAuthStore();
   const { couple, partnerProfile, stats, streak: streakData } = useCoupleStore();
   const { initializePresence, updateMyState, isConnected } = usePresenceStore();
   const { registerForPushNotifications, isPermissionGranted } = useNotificationStore();
+  const { friends, pendingRequests, fetchFriends, getPendingGamesCount, hasFetched: friendsLoaded } = useFriendsStore();
 
   // Auto-register for notifications (one-time check)
   useEffect(() => {
@@ -43,11 +46,23 @@ export default function Home() {
     }
   }, [isConnected]);
 
+  // Fetch friends data
+  useEffect(() => {
+    if (user?.id && !friendsLoaded) {
+      fetchFriends(user.id);
+    }
+  }, [user?.id, friendsLoaded]);
+
   // Use real data where available, fallback to defaults
   const syncScore = stats?.sync_score || 0;
   const streak = streakData?.current_streak || 0;
   const partnerName = partnerProfile?.display_name || 'Partner';
   const userName = user?.display_name || 'You';
+
+  // Friends data
+  const pendingGamesCount = getPendingGamesCount();
+  const totalFriends = friends.length;
+  const pendingRequestsCount = pendingRequests.length;
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -56,12 +71,25 @@ export default function Home() {
     return 'Good evening';
   };
 
+  const getRelationshipIcon = (type: string) => {
+    const found = RELATIONSHIP_TYPES.find(r => r.id === type);
+    return found?.icon || '👤';
+  };
+
   const handleDailySync = () => {
     router.push('/(main)/game/daily');
   };
 
   const handleDateNight = () => {
     router.push('/(main)/game/datenight');
+  };
+
+  const handleViewFriends = () => {
+    router.push('/(main)/(tabs)/friends');
+  };
+
+  const handlePlayWithFriend = (friendshipId: string) => {
+    router.push(`/(main)/friends/play/${friendshipId}`);
   };
 
   return (
@@ -122,6 +150,111 @@ export default function Home() {
             size="small"
           />
         </Card>
+
+        {/* Friends & Family Section */}
+        <View style={styles.friendsSection}>
+          <View style={styles.friendsHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>Friends & Family</Text>
+              <Text style={styles.sectionSubtitle}>
+                {totalFriends === 0 
+                  ? 'Connect with friends and family' 
+                  : `${totalFriends} connection${totalFriends !== 1 ? 's' : ''}`}
+              </Text>
+            </View>
+            {(pendingRequestsCount > 0 || pendingGamesCount > 0) && (
+              <View style={styles.friendsBadge}>
+                <Text style={styles.friendsBadgeText}>
+                  {pendingRequestsCount > 0 ? `${pendingRequestsCount} new` : `${pendingGamesCount} games`}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Friends Quick Access */}
+          {friends.length > 0 ? (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.friendsList}
+            >
+              {friends.slice(0, 5).map((friend) => {
+                const friendUser = friend.friend_user || friend.initiator_user;
+                const name = friend.nickname || friendUser?.display_name || 'Friend';
+                const avatar = friendUser?.avatar_url;
+                const relationIcon = getRelationshipIcon(friend.relationship_type);
+                
+                return (
+                  <TouchableOpacity
+                    key={friend.id}
+                    style={styles.friendCard}
+                    onPress={() => handlePlayWithFriend(friend.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.friendAvatarContainer}>
+                      {avatar ? (
+                        <Image source={{ uri: avatar }} style={styles.friendAvatar} />
+                      ) : (
+                        <LinearGradient
+                          colors={[colors.greenAccent, colors.purpleLight]}
+                          style={styles.friendAvatarPlaceholder}
+                        >
+                          <Text style={styles.friendInitial}>
+                            {name.charAt(0).toUpperCase()}
+                          </Text>
+                        </LinearGradient>
+                      )}
+                      <View style={styles.relationshipBadge}>
+                        <Text style={styles.relationshipIcon}>{relationIcon}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.friendName} numberOfLines={1}>
+                      {name}
+                    </Text>
+                    <Text style={styles.playText}>Play →</Text>
+                  </TouchableOpacity>
+                );
+              })}
+              
+              {/* Add Friend Card */}
+              <TouchableOpacity
+                style={[styles.friendCard, styles.addFriendCard]}
+                onPress={handleViewFriends}
+                activeOpacity={0.7}
+              >
+                <View style={styles.addFriendIcon}>
+                  <Text style={styles.addFriendPlus}>+</Text>
+                </View>
+                <Text style={styles.friendName}>Add</Text>
+                <Text style={styles.playText}>Friend</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          ) : (
+            <Card style={styles.noFriendsCard}>
+              <Text style={styles.noFriendsText}>
+                🎮 Play question games with friends and family too!
+              </Text>
+              <Button
+                title="Invite Friends"
+                onPress={handleViewFriends}
+                variant="secondary"
+                size="small"
+              />
+            </Card>
+          )}
+
+          {/* View All Friends Link */}
+          {friends.length > 0 && (
+            <TouchableOpacity 
+              style={styles.viewAllButton}
+              onPress={handleViewFriends}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.viewAllText}>View All Friends</Text>
+              <Text style={styles.viewAllArrow}>→</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Quick Stats */}
         <View style={styles.quickStats}>
@@ -217,6 +350,138 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: 16,
   },
+  
+  // Friends Section
+  friendsSection: {
+    marginBottom: 16,
+  },
+  friendsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontFamily: fontFamilies.bodySemiBold,
+    fontSize: 18,
+    color: colors.textPrimary,
+  },
+  sectionSubtitle: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  friendsBadge: {
+    backgroundColor: colors.greenAccent,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  friendsBadgeText: {
+    ...typography.captionBold,
+    color: colors.darkBg,
+  },
+  friendsList: {
+    paddingVertical: 8,
+  },
+  friendCard: {
+    alignItems: 'center',
+    marginRight: 16,
+    width: 80,
+  },
+  friendAvatarContainer: {
+    position: 'relative',
+    marginBottom: 8,
+  },
+  friendAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: colors.greenAccent,
+  },
+  friendAvatarPlaceholder: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  friendInitial: {
+    fontFamily: fontFamilies.bodyBold,
+    fontSize: 24,
+    color: colors.textPrimary,
+  },
+  relationshipBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: colors.cardDark,
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  relationshipIcon: {
+    fontSize: 12,
+  },
+  friendName: {
+    ...typography.captionBold,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  playText: {
+    ...typography.caption,
+    color: colors.greenAccent,
+    marginTop: 2,
+  },
+  addFriendCard: {
+    opacity: 0.8,
+  },
+  addFriendIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: colors.textMuted,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  addFriendPlus: {
+    fontFamily: fontFamilies.bodyBold,
+    fontSize: 28,
+    color: colors.textMuted,
+  },
+  noFriendsCard: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  noFriendsText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  viewAllText: {
+    ...typography.label,
+    color: colors.greenAccent,
+  },
+  viewAllArrow: {
+    ...typography.label,
+    color: colors.greenAccent,
+    marginLeft: 4,
+  },
+
+  // Quick Stats
   quickStats: {
     flexDirection: 'row',
     backgroundColor: colors.cardDark,
