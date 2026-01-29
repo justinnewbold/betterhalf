@@ -36,8 +36,10 @@ export default function FriendSettingsScreen() {
   const [hasChanges, setHasChanges] = useState(false);
 
   // Determine if current user is initiator
+  // Note: friend_user in FriendWithUser always represents the "other person" 
+  // regardless of who initiated, as it's mapped in friendsStore
   const isInitiator = friend?.user_id === user?.id;
-  const friendUser = isInitiator ? friend?.friend_user : friend?.initiator_user;
+  const friendUser = friend?.friend_user;
   const friendName = friend?.nickname || friendUser?.display_name || 'Friend';
   const friendAvatar = friendUser?.avatar_url;
   const friendEmail = friendUser?.email;
