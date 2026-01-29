@@ -9,9 +9,8 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
-import { useFriendsStore } from '@/stores/friendsStore';
-import ConfettiCannon from 'react-native-confetti-cannon';
+import { supabase } from '../../../../lib/supabase';
+import { useFriendsStore } from '../../../../stores/friendsStore';
 
 interface GameResult {
   id: string;
@@ -252,15 +251,11 @@ export default function FriendGameResultsScreen() {
   
   return (
     <View style={styles.container}>
+      {/* Match Celebration */}
       {showConfetti && (
-        <ConfettiCannon
-          count={100}
-          origin={{ x: -10, y: 0 }}
-          autoStart={true}
-          fadeOut={true}
-          explosionSpeed={300}
-          fallSpeed={2500}
-        />
+        <View style={styles.confettiContainer}>
+          <Text style={styles.confettiEmoji}>🎉</Text>
+        </View>
       )}
       
       {/* Header */}
@@ -603,5 +598,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 4,
+  },
+  confettiContainer: {
+    position: 'absolute',
+    top: 100,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  confettiEmoji: {
+    fontSize: 60,
   },
 });
