@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, ActivityIndicator } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, ActivityIndicator, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
@@ -20,8 +21,13 @@ export default function EditProfile() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
+  
+  // Web file input ref
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSaveProfile = async () => {
     setError(null);
@@ -94,14 +100,167 @@ export default function EditProfile() {
     }
   };
 
+  const handlePickImage = async () => {
+    setError(null);
+    
+    if (Platform.OS === 'web') {
+      // Use native file input on web
+      fileInputRef.current?.click();
+      return;
+    }
+
+    // Request permissions
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      setError('Permission to access photos is required');
+      return;
+    }
+
+    // Launch image picker
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      await uploadImage(result.assets[0].uri);
+    }
+  };
+
+  const handleWebFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image must be less than 5MB');
+      return;
+    }
+
+    // Create local preview
+    const localUri = URL.createObjectURL(file);
+    setLocalAvatarUri(localUri);
+
+    await uploadImageFile(file);
+  };
+
+  const uploadImage = async (uri: string) => {
+    setIsUploadingPhoto(true);
+    setError(null);
+
+    try {
+      const supabase = getSupabase();
+      if (!supabase || !user?.id) throw new Error('Not connected');
+
+      // Fetch the image and convert to blob
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      
+      // Generate filename
+      const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { data, error: uploadError } = await supabase.storage
+        .from('betterhalf-avatars')
+        .upload(filePath, blob, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('betterhalf-avatars')
+        .getPublicUrl(filePath);
+
+      // Update user profile with new avatar URL
+      const { error: profileError } = await updateProfile({ avatar_url: publicUrl });
+      if (profileError) throw profileError;
+
+      setLocalAvatarUri(uri);
+      setSuccess('Profile photo updated!');
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      setError(err.message || 'Failed to upload photo');
+      setLocalAvatarUri(null);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const uploadImageFile = async (file: File) => {
+    setIsUploadingPhoto(true);
+    setError(null);
+
+    try {
+      const supabase = getSupabase();
+      if (!supabase || !user?.id) throw new Error('Not connected');
+
+      // Generate filename
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { data, error: uploadError } = await supabase.storage
+        .from('betterhalf-avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('betterhalf-avatars')
+        .getPublicUrl(filePath);
+
+      // Update user profile with new avatar URL
+      const { error: profileError } = await updateProfile({ avatar_url: publicUrl });
+      if (profileError) throw profileError;
+
+      setSuccess('Profile photo updated!');
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      setError(err.message || 'Failed to upload photo');
+      setLocalAvatarUri(null);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
   const handleClose = () => {
     router.back();
   };
 
   const userInitial = user?.display_name?.charAt(0).toUpperCase() || 'U';
+  const displayAvatarUri = localAvatarUri || user?.avatar_url;
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Hidden file input for web */}
+      {Platform.OS === 'web' && (
+        <input
+          ref={fileInputRef as any}
+          type="file"
+          accept="image/*"
+          onChange={handleWebFileSelect as any}
+          style={{ display: 'none' }}
+        />
+      )}
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleClose}>
@@ -114,17 +273,34 @@ export default function EditProfile() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         {/* Avatar */}
         <View style={styles.avatarSection}>
-          {user?.avatar_url ? (
-            <Image source={{ uri: user.avatar_url }} style={styles.avatar} />
-          ) : (
-            <LinearGradient colors={[colors.coral, colors.coralLight]} style={styles.avatar}>
-              <Text style={styles.avatarText}>{userInitial}</Text>
-            </LinearGradient>
-          )}
-          <TouchableOpacity style={styles.changePhotoButton}>
-            <Text style={styles.changePhotoText}>Change Photo</Text>
+          <TouchableOpacity onPress={handlePickImage} disabled={isUploadingPhoto}>
+            <View style={styles.avatarContainer}>
+              {displayAvatarUri ? (
+                <Image source={{ uri: displayAvatarUri }} style={styles.avatar} />
+              ) : (
+                <LinearGradient colors={[colors.coral, colors.coralLight]} style={styles.avatar}>
+                  <Text style={styles.avatarText}>{userInitial}</Text>
+                </LinearGradient>
+              )}
+              {isUploadingPhoto && (
+                <View style={styles.uploadingOverlay}>
+                  <ActivityIndicator color={colors.textPrimary} />
+                </View>
+              )}
+              <View style={styles.cameraIcon}>
+                <Text style={styles.cameraIconText}>📷</Text>
+              </View>
+            </View>
           </TouchableOpacity>
-          <Text style={styles.photoHint}>Coming soon</Text>
+          <TouchableOpacity 
+            style={styles.changePhotoButton} 
+            onPress={handlePickImage}
+            disabled={isUploadingPhoto}
+          >
+            <Text style={styles.changePhotoText}>
+              {isUploadingPhoto ? 'Uploading...' : 'Change Photo'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Error/Success Messages */}
@@ -242,6 +418,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
+  avatarContainer: {
+    position: 'relative',
+  },
   avatar: {
     width: 100,
     height: 100,
@@ -254,17 +433,39 @@ const styles = StyleSheet.create({
     fontSize: 40,
     color: colors.textPrimary,
   },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 50,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraIcon: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.purpleLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: colors.darkBg,
+  },
+  cameraIconText: {
+    fontSize: 14,
+  },
   changePhotoButton: {
     marginTop: 12,
   },
   changePhotoText: {
     ...typography.body,
     color: colors.purpleLight,
-  },
-  photoHint: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginTop: 4,
   },
   errorBox: {
     backgroundColor: 'rgba(255,107,107,0.15)',
