@@ -104,6 +104,7 @@ export default function Settings() {
               await supabase.from(TABLES.game_sessions).delete().eq('couple_id', couple.id);
               await supabase.from(TABLES.couple_stats).delete().eq('couple_id', couple.id);
               await supabase.from(TABLES.streaks).delete().eq('couple_id', couple.id);
+              await supabase.from(TABLES.custom_questions).delete().eq('couple_id', couple.id);
               
               // Delete the couple
               await supabase.from(TABLES.couples).delete().eq('id', couple.id);
@@ -157,6 +158,18 @@ export default function Settings() {
             icon="🎯" 
             label="Question Categories" 
             onPress={() => router.push('/(main)/settings/categories')} 
+          />
+          <MenuItem 
+            icon="✨" 
+            label="Custom Questions" 
+            subtitle="Create your own questions"
+            onPress={() => router.push('/(main)/settings/custom-questions')} 
+          />
+          <MenuItem 
+            icon="📚" 
+            label="Question History" 
+            subtitle="View past answers"
+            onPress={() => router.push('/(main)/settings/history')} 
           />
         </Card>
 
@@ -217,7 +230,7 @@ export default function Settings() {
           <Text style={styles.sectionTitle}>About</Text>
           <View style={styles.aboutRow}>
             <Text style={styles.aboutLabel}>Version</Text>
-            <Text style={styles.aboutValue}>1.0.0</Text>
+            <Text style={styles.aboutValue}>1.1.0</Text>
           </View>
         </Card>
       </ScrollView>
@@ -261,14 +274,18 @@ export default function Settings() {
 interface MenuItemProps {
   icon: string;
   label: string;
+  subtitle?: string;
   onPress: () => void;
 }
 
-function MenuItem({ icon, label, onPress }: MenuItemProps) {
+function MenuItem({ icon, label, subtitle, onPress }: MenuItemProps) {
   return (
     <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
       <Text style={styles.menuIcon}>{icon}</Text>
-      <Text style={styles.menuLabel}>{label}</Text>
+      <View style={styles.menuContent}>
+        <Text style={styles.menuLabel}>{label}</Text>
+        {subtitle && <Text style={styles.menuSubtitle}>{subtitle}</Text>}
+      </View>
       <Text style={styles.menuArrow}>›</Text>
     </TouchableOpacity>
   );
@@ -323,10 +340,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginRight: 12,
   },
+  menuContent: {
+    flex: 1,
+  },
   menuLabel: {
     ...typography.body,
     color: colors.textPrimary,
-    flex: 1,
+  },
+  menuSubtitle: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: 2,
   },
   menuArrow: {
     fontSize: 20,
