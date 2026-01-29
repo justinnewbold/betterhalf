@@ -72,11 +72,11 @@ export default function InviteLanding() {
   const handleSignIn = () => {
     if (inviteCode) {
       router.push({
-        pathname: '/(auth)/login',
+        pathname: '/(auth)/signin',
         params: { inviteCode },
       });
     } else {
-      router.push('/(auth)/login');
+      router.push('/(auth)/signin');
     }
   };
 
