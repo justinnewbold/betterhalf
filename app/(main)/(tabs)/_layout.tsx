@@ -1,17 +1,28 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '../../../constants/colors';
+import { useFriendsStore } from '../../../stores/friendsStore';
 
-function TabIcon({ icon, label, focused }: { icon: string; label: string; focused: boolean }) {
+function TabIcon({ icon, label, focused, badge }: { icon: string; label: string; focused: boolean; badge?: number }) {
   return (
     <View style={styles.tabItem}>
-      <Text style={[styles.tabIcon, focused && styles.tabIconFocused]}>{icon}</Text>
+      <View style={styles.iconContainer}>
+        <Text style={[styles.tabIcon, focused && styles.tabIconFocused]}>{icon}</Text>
+        {badge && badge > 0 && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{badge > 9 ? '9+' : badge}</Text>
+          </View>
+        )}
+      </View>
       <Text style={[styles.tabLabel, focused && styles.tabLabelFocused]}>{label}</Text>
     </View>
   );
 }
 
 export default function TabsLayout() {
+  const { pendingRequests, getPendingGamesCount } = useFriendsStore();
+  const friendsBadge = pendingRequests.length + getPendingGamesCount();
+
   return (
     <Tabs
       screenOptions={{
@@ -30,6 +41,14 @@ export default function TabsLayout() {
         name="play"
         options={{
           tabBarIcon: ({ focused }) => <TabIcon icon="🎮" label="Play" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="friends"
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <TabIcon icon="👥" label="Friends" focused={focused} badge={friendsBadge} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -61,6 +80,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
+  iconContainer: {
+    position: 'relative',
+  },
   tabIcon: {
     fontSize: 22,
     opacity: 0.5,
@@ -74,5 +96,22 @@ const styles = StyleSheet.create({
   },
   tabLabelFocused: {
     color: colors.coral,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -8,
+    backgroundColor: colors.coral,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 });
