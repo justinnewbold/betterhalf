@@ -1,17 +1,6 @@
 import { create } from 'zustand';
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import { getSupabase, TABLES } from '../lib/supabase';
-
-// Configure notification behavior
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
 
 interface NotificationPreferences {
   dailyReminder: boolean;
@@ -30,8 +19,7 @@ interface NotificationStore {
   registerForPushNotifications: (userId: string) => Promise<string | null>;
   updatePreferences: (prefs: Partial<NotificationPreferences>) => Promise<void>;
   loadPreferences: (userId: string) => Promise<void>;
-  scheduleLocalNotification: (title: string, body: string, trigger?: any) => Promise<string | null>;
-  cancelAllNotifications: () => Promise<void>;
+  requestPermission: () => Promise<boolean>;
   reset: () => void;
 }
 
@@ -48,50 +36,47 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   preferences: DEFAULT_PREFERENCES,
   isLoading: false,
 
+  requestPermission: async () => {
+    // Web notifications
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && 'Notification' in window) {
+      try {
+        const permission = await Notification.requestPermission();
+        const granted = permission === 'granted';
+        set({ isPermissionGranted: granted });
+        return granted;
+      } catch (err) {
+        console.error('[Notifications] Permission request failed:', err);
+        return false;
+      }
+    }
+    
+    // For native, we'd use expo-notifications but it's not installed yet
+    // Return false for now - native push requires app store deployment
+    console.log('[Notifications] Native push not configured yet');
+    return false;
+  },
+
   registerForPushNotifications: async (userId) => {
     set({ isLoading: true });
     
     try {
-      // Check if physical device (required for push)
-      if (Platform.OS !== 'web' && !Device.isDevice) {
-        console.log('[Notifications] Must use physical device for push notifications');
+      const granted = await get().requestPermission();
+      
+      if (!granted) {
+        console.log('[Notifications] Permission not granted');
         set({ isLoading: false });
         return null;
       }
 
-      // Request permission
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-      
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-      
-      if (finalStatus !== 'granted') {
-        console.log('[Notifications] Permission not granted');
-        set({ isPermissionGranted: false, isLoading: false });
-        return null;
-      }
-
-      set({ isPermissionGranted: true });
-
-      // Get push token
+      // Generate a simple token for web
       let token: string | null = null;
       
       if (Platform.OS === 'web') {
-        // Web uses browser notifications - no Expo token needed
-        console.log('[Notifications] Web platform - using browser notifications');
-        token = 'web-' + userId;
-      } else {
-        // Native platforms use Expo Push
-        const tokenData = await Notifications.getExpoPushTokenAsync({
-          projectId: process.env.EXPO_PUBLIC_PROJECT_ID || 'betterhalf',
-        });
-        token = tokenData.data;
+        // Web uses browser notifications - generate a simple identifier
+        token = `web-${userId}-${Date.now()}`;
       }
 
-      console.log('[Notifications] Push token:', token);
+      console.log('[Notifications] Token:', token);
 
       // Save token to database
       const supabase = getSupabase();
@@ -137,43 +122,11 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   },
 
   updatePreferences: async (prefs) => {
-    const supabase = getSupabase();
     const currentPrefs = get().preferences;
     const newPrefs = { ...currentPrefs, ...prefs };
     
     set({ preferences: newPrefs });
-
-    // Save to database if connected
-    // This would require the userId - for now just update local state
     console.log('[Notifications] Preferences updated:', newPrefs);
-  },
-
-  scheduleLocalNotification: async (title, body, trigger) => {
-    try {
-      const id = await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-          sound: true,
-        },
-        trigger: trigger || null, // null = immediate
-      });
-      
-      console.log('[Notifications] Scheduled notification:', id);
-      return id;
-    } catch (error) {
-      console.error('[Notifications] Failed to schedule:', error);
-      return null;
-    }
-  },
-
-  cancelAllNotifications: async () => {
-    try {
-      await Notifications.cancelAllScheduledNotificationsAsync();
-      console.log('[Notifications] Cancelled all notifications');
-    } catch (error) {
-      console.error('[Notifications] Failed to cancel:', error);
-    }
   },
 
   reset: () => {
@@ -186,29 +139,18 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   },
 }));
 
-// Helper to send notification when partner answers
-export async function notifyPartnerAnswered(partnerId: string, partnerName: string) {
-  const supabase = getSupabase();
-  if (!supabase) return;
-
-  try {
-    // Get partner's push token
-    const { data, error } = await supabase
-      .from(TABLES.users)
-      .select('push_token, notification_preferences')
-      .eq('id', partnerId)
-      .single();
-
-    if (error || !data?.push_token) return;
-
-    // Check if they have this notification enabled
-    const prefs = data.notification_preferences || DEFAULT_PREFERENCES;
-    if (!prefs.partnerAnswered) return;
-
-    // For Expo push, we'd send to their token here
-    // This would typically be done server-side via Supabase Edge Function
-    console.log('[Notifications] Would notify partner:', partnerId);
-  } catch (error) {
-    console.error('[Notifications] Failed to notify partner:', error);
+// Helper to show a browser notification
+export function showBrowserNotification(title: string, body: string, options?: NotificationOptions) {
+  if (Platform.OS !== 'web' || typeof window === 'undefined' || !('Notification' in window)) {
+    return;
+  }
+  
+  if (Notification.permission === 'granted') {
+    new Notification(title, {
+      body,
+      icon: '/favicon.png',
+      badge: '/favicon.png',
+      ...options,
+    });
   }
 }
