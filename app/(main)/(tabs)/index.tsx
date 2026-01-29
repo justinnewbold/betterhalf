@@ -10,6 +10,7 @@ import { PartnerStatus, PartnerAnsweringIndicator } from '../../../components/ui
 import { useAuthStore } from '../../../stores/authStore';
 import { useCoupleStore } from '../../../stores/coupleStore';
 import { usePresenceStore } from '../../../stores/presenceStore';
+import { useNotificationStore } from '../../../stores/notificationStore';
 import { colors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
 
@@ -17,6 +18,15 @@ export default function Home() {
   const { user } = useAuthStore();
   const { couple, partnerProfile, stats, streak: streakData } = useCoupleStore();
   const { initializePresence, updateMyState, isConnected } = usePresenceStore();
+  const { registerForPushNotifications, isPermissionGranted } = useNotificationStore();
+
+  // Auto-register for notifications (one-time check)
+  useEffect(() => {
+    if (user?.id && couple?.status === 'active' && !isPermissionGranted) {
+      // Silently attempt to register - don't block or prompt
+      registerForPushNotifications(user.id).catch(() => {});
+    }
+  }, [user?.id, couple?.status]);
 
   // Initialize presence when we have couple data
   useEffect(() => {
