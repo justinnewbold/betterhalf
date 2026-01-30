@@ -13,6 +13,7 @@ interface CoupleState {
   partnerProfile: Tables['users'] | null;
   isLoading: boolean;
   hasFetched: boolean;
+  lastFetchUserId: string | null;
   
   fetchCouple: (userId: string) => Promise<void>;
   createCouple: (userId: string) => Promise<{ inviteCode: string | null; error: any }>;
@@ -29,6 +30,7 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
   partnerProfile: null,
   isLoading: false,
   hasFetched: false,
+  lastFetchUserId: null,
 
   fetchCouple: async (userId) => {
     const supabase = getSupabase();
@@ -38,7 +40,20 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
       return;
     }
     
-    set({ isLoading: true });
+    // Prevent duplicate fetches for the same user
+    const state = get();
+    if (state.isLoading) {
+      console.log('[CoupleStore] Already fetching, skipping');
+      return;
+    }
+    
+    // If we already fetched for this user, don't refetch unless reset
+    if (state.hasFetched && state.lastFetchUserId === userId) {
+      console.log('[CoupleStore] Already fetched for this user');
+      return;
+    }
+    
+    set({ isLoading: true, lastFetchUserId: userId });
     console.log('[CoupleStore] Fetching couple for user:', userId);
 
     try {
@@ -126,7 +141,7 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
         .from(TABLES.streaks)
         .insert({ couple_id: data.id });
 
-      set({ couple: data });
+      set({ couple: data, hasFetched: true });
       return { inviteCode: data.invite_code, error: null };
     } catch (error) {
       console.error('[CoupleStore] Create couple exception:', error);
@@ -190,8 +205,8 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
         return { error: { message: 'Failed to join: ' + updateError.message } };
       }
 
-      // Refresh couple data
-      set({ couple: updatedCouple, hasFetched: false });
+      // Reset hasFetched to force a fresh fetch
+      set({ couple: updatedCouple, hasFetched: false, lastFetchUserId: null });
       await get().fetchCouple(userId);
 
       console.log('[CoupleStore] Successfully joined couple!');
@@ -256,6 +271,6 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
 
   reset: () => {
     console.log('[CoupleStore] Resetting store');
-    set({ couple: null, stats: null, streak: null, partnerProfile: null, isLoading: false, hasFetched: false });
+    set({ couple: null, stats: null, streak: null, partnerProfile: null, isLoading: false, hasFetched: false, lastFetchUserId: null });
   },
 }));
