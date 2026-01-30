@@ -16,7 +16,7 @@ export default function Settings() {
   const [showResetModal, setShowResetModal] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
 
-  const partnerName = partnerProfile?.display_name || 'Partner';
+  const connectionName = partnerProfile?.display_name || 'Your Person';
 
   const handleClose = () => {
     router.back();
@@ -82,12 +82,12 @@ export default function Settings() {
     }
   };
 
-  const handleDisconnectPartner = async () => {
+  const handleDisconnect = async () => {
     if (!user?.id || !couple?.id) return;
 
     Alert.alert(
-      'Disconnect Partner',
-      `Are you sure you want to disconnect from ${partnerName}? This will:\n\n• Delete all your shared game history\n• Reset your streaks and stats\n• Remove your partner connection\n\nYou'll need a new invite code to connect again.`,
+      'Disconnect',
+      `Are you sure you want to disconnect from ${connectionName}? This will:\n\n• Delete all your shared game history\n• Reset your streaks and stats\n• Remove your connection\n\nYou'll need a new invite code to connect again.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -173,13 +173,13 @@ export default function Settings() {
           />
         </Card>
 
-        {/* Partner Connection */}
+        {/* Connection */}
         {couple && (
           <Card style={styles.card}>
-            <Text style={styles.sectionTitle}>Partner Connection</Text>
+            <Text style={styles.sectionTitle}>Connection</Text>
             <View style={styles.partnerInfo}>
               <Text style={styles.partnerLabel}>Connected with</Text>
-              <Text style={styles.partnerName}>{partnerName}</Text>
+              <Text style={styles.partnerName}>{connectionName}</Text>
               {couple.status === 'active' && (
                 <Text style={styles.partnerStatus}>✓ Active</Text>
               )}
@@ -204,22 +204,22 @@ export default function Settings() {
             <View style={styles.dangerContent}>
               <Text style={styles.dangerLabel}>Reset Game Data</Text>
               <Text style={styles.dangerDescription}>
-                Clear all your stats and start fresh with your partner
+                Clear all your stats and start fresh
               </Text>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity 
             style={[styles.dangerItem, styles.dangerItemLast]}
-            onPress={handleDisconnectPartner}
+            onPress={handleDisconnect}
           >
             <Text style={styles.dangerIcon}>💔</Text>
             <View style={styles.dangerContent}>
               <Text style={[styles.dangerLabel, { color: colors.coral }]}>
-                Disconnect Partner
+                Disconnect
               </Text>
               <Text style={styles.dangerDescription}>
-                Remove your partner connection and delete all shared data
+                Remove your connection and delete all shared data
               </Text>
             </View>
           </TouchableOpacity>
@@ -246,7 +246,7 @@ export default function Settings() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Reset Game Data?</Text>
             <Text style={styles.modalText}>
-              This will clear all your game history, stats, and streaks. Your partner connection will remain.
+              This will clear all your game history, stats, and streaks. Your connection will remain.
             </Text>
             <Text style={styles.modalWarning}>This action cannot be undone.</Text>
             
