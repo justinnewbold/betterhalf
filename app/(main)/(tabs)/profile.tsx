@@ -73,14 +73,14 @@ export default function Profile() {
 
         <Card style={styles.menuCard}>
           <MenuItem icon="⚙️" label="Settings" onPress={() => router.push('/(main)/settings')} />
-          <MenuItem icon="🏆" label="Achievements" onPress={() => {}} />
-          <MenuItem icon="🔔" label="Notifications" onPress={() => {}} />
-          <MenuItem icon="💜" label="Upgrade to Premium" onPress={() => {}} isLast />
+          <MenuItem icon="🏆" label="Achievements" onPress={() => router.push('/(main)/settings/achievements')} />
+          <MenuItem icon="🔔" label="Notifications" onPress={() => router.push('/(main)/settings/notifications')} />
+          <MenuItem icon="💜" label="Upgrade to Premium" onPress={() => router.push('/(main)/settings/premium')} isLast />
         </Card>
 
         <Card style={styles.menuCard}>
-          <MenuItem icon="❓" label="Help & Support" onPress={() => {}} />
-          <MenuItem icon="📝" label="Send Feedback" onPress={() => {}} isLast />
+          <MenuItem icon="❓" label="Help & Support" onPress={() => router.push('/(main)/settings/help')} />
+          <MenuItem icon="📝" label="Send Feedback" onPress={() => router.push('/(main)/settings/feedback')} isLast />
         </Card>
 
         <Button title="Sign Out" onPress={handleSignOut} variant="ghost" style={styles.signOutButton} />
