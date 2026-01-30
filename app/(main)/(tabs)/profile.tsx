@@ -15,9 +15,9 @@ export default function Profile() {
   const { couple, partnerProfile, stats, streak: streakData, reset: resetCoupleStore } = useCoupleStore();
 
   const userName = user?.display_name || 'You';
-  const partnerName = partnerProfile?.display_name || 'Partner';
+  const connectionName = partnerProfile?.display_name || 'Your Person';
   const userAvatar = user?.avatar_url;
-  const partnerAvatar = partnerProfile?.avatar_url;
+  const connectionAvatar = partnerProfile?.avatar_url;
 
   const formatAnniversary = () => {
     if (!couple?.anniversary_date) return 'Set your anniversary';
@@ -42,16 +42,16 @@ export default function Profile() {
               <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
             </LinearGradient>
           )}
-          {partnerAvatar ? (
-            <Image source={{ uri: partnerAvatar }} style={[styles.avatarImage, styles.avatarRight]} />
+          {connectionAvatar ? (
+            <Image source={{ uri: connectionAvatar }} style={[styles.avatarImage, styles.avatarRight]} />
           ) : (
             <LinearGradient colors={[colors.purple, colors.purpleLight]} style={[styles.avatar, styles.avatarRight]}>
-              <Text style={styles.avatarText}>{partnerName.charAt(0).toUpperCase()}</Text>
+              <Text style={styles.avatarText}>{connectionName.charAt(0).toUpperCase()}</Text>
             </LinearGradient>
           )}
         </View>
 
-        <Text style={styles.names}>{userName} & {partnerName}</Text>
+        <Text style={styles.names}>{userName} & {connectionName}</Text>
         <Text style={styles.since}>{formatAnniversary()}</Text>
 
         <Card style={styles.statsCard}>
