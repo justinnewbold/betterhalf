@@ -6,7 +6,7 @@ import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { colors } from '../constants/colors';
 
 export default function Index() {
-  const { session, isLoading: authLoading, isInitialized } = useAuthStore();
+  const { session, user, isLoading: authLoading, isInitialized } = useAuthStore();
   const { couple, isLoading: coupleLoading, hasFetched, fetchCouple } = useCoupleStore();
   const [isPasswordReset, setIsPasswordReset] = useState(false);
   const [resetUrl, setResetUrl] = useState<string>('/(auth)/reset-password');
@@ -102,7 +102,14 @@ export default function Index() {
     );
   }
 
-  // Logged in but no active couple -> Invite flow
+  // Logged in but profile not completed -> Setup profile first
+  // Check if user exists and has NOT completed profile setup
+  if (user && !user.profile_completed) {
+    console.log('[Index] Profile not completed, redirecting to setup');
+    return <Redirect href="/(auth)/setup-profile" />;
+  }
+
+  // Logged in, profile complete, but no active couple -> Invite flow
   if (!couple || couple.status !== 'active') {
     return <Redirect href="/(auth)/invite" />;
   }
