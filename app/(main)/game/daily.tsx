@@ -53,8 +53,8 @@ export default function DailySync() {
   const [syncScore, setSyncScore] = useState(0);
   const [todayStats, setTodayStats] = useState({ matched: 0, total: 1 });
 
-  const partnerName = partnerProfile?.display_name || 'Partner';
-  const isPartnerA = couple?.partner_a_id === user?.id;
+  const connectionName = partnerProfile?.display_name || 'Your Person';
+  const isConnectionA = couple?.partner_a_id === user?.id;
 
   // Update presence when entering/leaving game
   useEffect(() => {
@@ -113,8 +113,8 @@ export default function DailySync() {
         setQuestion(existingSession.question);
         
         // Determine current state based on answers
-        const myAnswer = isPartnerA ? existingSession.user_a_answer : existingSession.user_b_answer;
-        const theirAnswer = isPartnerA ? existingSession.user_b_answer : existingSession.user_a_answer;
+        const myAnswer = isConnectionA ? existingSession.user_a_answer : existingSession.user_b_answer;
+        const theirAnswer = isConnectionA ? existingSession.user_b_answer : existingSession.user_a_answer;
         
         if (existingSession.completed_at) {
           // Game already completed - show results
@@ -215,7 +215,7 @@ export default function DailySync() {
     if (!supabase) return;
 
     try {
-      const updateField = isPartnerA ? 'user_a_answer' : 'user_b_answer';
+      const updateField = isConnectionA ? 'user_a_answer' : 'user_b_answer';
       
       const { data: updated, error } = await supabase
         .from('betterhalf_daily_sessions')
@@ -229,7 +229,7 @@ export default function DailySync() {
       setSession(updated);
       
       // Check if partner already answered
-      const theirAnswer = isPartnerA ? updated.user_b_answer : updated.user_a_answer;
+      const theirAnswer = isConnectionA ? updated.user_b_answer : updated.user_a_answer;
       
       if (theirAnswer !== null) {
         // Partner already answered - go to reveal
@@ -260,7 +260,7 @@ export default function DailySync() {
 
       if (error) throw error;
 
-      const theirAnswer = isPartnerA ? updated.user_b_answer : updated.user_a_answer;
+      const theirAnswer = isConnectionA ? updated.user_b_answer : updated.user_a_answer;
       
       if (theirAnswer !== null && selectedOption !== undefined) {
         // Partner answered!
@@ -421,7 +421,7 @@ export default function DailySync() {
                   </Text>
                 </View>
                 <View style={[styles.answerBox, isMatch && styles.answerMatch]}>
-                  <Text style={styles.answerName}>{partnerName.toUpperCase()}</Text>
+                  <Text style={styles.answerName}>{connectionName.toUpperCase()}</Text>
                   <Text style={styles.answerValue}>
                     {question.options[partnerOption ?? 0]}
                   </Text>
@@ -484,9 +484,9 @@ export default function DailySync() {
               {partnerState === 'playing' && partnerCurrentScreen === 'daily' ? '💭' : '⏳'}
             </Text>
           </View>
-          <Text style={styles.waitingTitle}>Waiting for {partnerName}</Text>
+          <Text style={styles.waitingTitle}>Waiting for {connectionName}</Text>
           {partnerState === 'playing' && partnerCurrentScreen === 'daily' ? (
-            <PartnerAnsweringIndicator partnerName={partnerName} />
+            <PartnerAnsweringIndicator partnerName={connectionName} />
           ) : (
             <Text style={styles.waitingSubtitle}>
               {partnerState === 'online' ? "They're online but haven't started yet" : "We'll notify you when they answer"}
@@ -523,7 +523,7 @@ export default function DailySync() {
                 </Text>
               </View>
               <View style={[styles.answerBox, isMatch && styles.answerMatch]}>
-                <Text style={styles.answerName}>{partnerName.toUpperCase()}</Text>
+                <Text style={styles.answerName}>{connectionName.toUpperCase()}</Text>
                 <Text style={styles.answerValue}>
                   {question.options[partnerOption ?? 0]}
                 </Text>
