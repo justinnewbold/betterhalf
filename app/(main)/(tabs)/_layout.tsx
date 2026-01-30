@@ -1,18 +1,12 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '../../../constants/colors';
-import { useFriendsStore } from '../../../stores/friendsStore';
 
-function TabIcon({ icon, label, focused, badge }: { icon: string; label: string; focused: boolean; badge?: number }) {
+function TabIcon({ icon, label, focused }: { icon: string; label: string; focused: boolean }) {
   return (
     <View style={styles.tabItem}>
       <View style={styles.iconContainer}>
         <Text style={[styles.tabIcon, focused && styles.tabIconFocused]}>{icon}</Text>
-        {badge && badge > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{badge > 9 ? '9+' : badge}</Text>
-          </View>
-        )}
       </View>
       <Text style={[styles.tabLabel, focused && styles.tabLabelFocused]}>{label}</Text>
     </View>
@@ -20,9 +14,6 @@ function TabIcon({ icon, label, focused, badge }: { icon: string; label: string;
 }
 
 export default function TabsLayout() {
-  const { pendingRequests, getPendingGamesCount } = useFriendsStore();
-  const friendsBadge = pendingRequests.length + getPendingGamesCount();
-
   return (
     <Tabs
       screenOptions={{
@@ -43,12 +34,11 @@ export default function TabsLayout() {
           tabBarIcon: ({ focused }) => <TabIcon icon="🎮" label="Play" focused={focused} />,
         }}
       />
+      {/* Friends tab hidden for MVP - will be enabled in future release */}
       <Tabs.Screen
         name="friends"
         options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon icon="👥" label="Friends" focused={focused} badge={friendsBadge} />
-          ),
+          href: null, // This hides the tab from navigation
         }}
       />
       <Tabs.Screen
@@ -96,22 +86,5 @@ const styles = StyleSheet.create({
   },
   tabLabelFocused: {
     color: colors.coral,
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -8,
-    backgroundColor: colors.coral,
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
   },
 });
