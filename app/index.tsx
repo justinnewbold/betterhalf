@@ -1,17 +1,19 @@
-import { Redirect, router } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { useAuthStore } from '../stores/authStore';
 import { useCoupleStore } from '../stores/coupleStore';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { colors } from '../constants/colors';
 
 export default function Index() {
   const { session, isLoading: authLoading, isInitialized } = useAuthStore();
   const { couple, isLoading: coupleLoading, hasFetched, fetchCouple } = useCoupleStore();
-  const [isPasswordReset, setIsPasswordReset] = useState<boolean | null>(null);
+  const [isPasswordReset, setIsPasswordReset] = useState(false);
   const [resetUrl, setResetUrl] = useState<string>('/(auth)/reset-password');
+  const [urlChecked, setUrlChecked] = useState(false);
+  const fetchTriggered = useRef(false);
 
-  // Check if this is a password reset link
+  // Check if this is a password reset link - only runs once
   useEffect(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const url = window.location.href;
@@ -24,31 +26,32 @@ export default function Index() {
       const isResetPath = pathname.includes('reset-password');
       
       console.log('[Index] URL check - code:', hasCode, 'recovery hash:', hasRecoveryHash, 'reset path:', isResetPath);
-      console.log('[Index] Full URL:', url);
       
       if (hasCode || hasRecoveryHash || isResetPath) {
         console.log('[Index] Password reset detected, redirecting to reset-password');
-        // Preserve query params and hash for the reset-password page
         const resetPath = `/(auth)/reset-password${search}${hash}`;
-        console.log('[Index] Reset path with params:', resetPath);
         setResetUrl(resetPath);
         setIsPasswordReset(true);
-      } else {
-        setIsPasswordReset(false);
       }
-    } else {
-      setIsPasswordReset(false);
     }
+    setUrlChecked(true);
   }, []);
 
+  // Fetch couple data when session is available
   useEffect(() => {
-    if (session?.user?.id && !hasFetched && !isPasswordReset) {
+    if (session?.user?.id && !hasFetched && !fetchTriggered.current && !isPasswordReset && urlChecked) {
+      fetchTriggered.current = true;
       fetchCouple(session.user.id);
     }
-  }, [session?.user?.id, hasFetched, isPasswordReset]);
+  }, [session?.user?.id, hasFetched, isPasswordReset, urlChecked]);
 
-  // Still checking for password reset
-  if (isPasswordReset === null) {
+  // Reset fetch trigger if user changes
+  useEffect(() => {
+    fetchTriggered.current = false;
+  }, [session?.user?.id]);
+
+  // Still checking URL
+  if (!urlChecked) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={colors.purple} />
