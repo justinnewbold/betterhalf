@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Clipboard } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Clipboard, Image } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,7 +11,7 @@ import { colors } from '../../constants/colors';
 import { typography, fontFamilies } from '../../constants/typography';
 
 export default function Invite() {
-  const { session, signOut } = useAuthStore();
+  const { session, user, signOut } = useAuthStore();
   const { couple, isLoading, hasFetched, fetchCouple, createCouple, joinCouple } = useCoupleStore();
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [code, setCode] = useState('');
@@ -50,14 +50,15 @@ export default function Invite() {
   const handleShareCode = async () => {
     if (!couple?.invite_code) return;
     
+    const userName = user?.display_name || 'Someone special';
     const inviteLink = `https://betterhalf.newbold.cloud/invite?code=${couple.invite_code}`;
-    const shareMessage = `💕 Join me on Better Half!\n\nI want us to stay connected with daily questions that help us understand each other better.\n\n🔗 Click to join: ${inviteLink}\n\nOr use code: ${couple.invite_code}`;
+    const shareMessage = `💕 ${userName} wants to connect with you on Better Half!\n\nJoin me for daily questions that help us understand each other better.\n\n🔗 Click to join: ${inviteLink}\n\nOr use code: ${couple.invite_code}`;
     
     // Check if Web Share API is available
     if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
-          title: 'Join me on Better Half! 💕',
+          title: `${userName} invited you to Better Half! 💕`,
           text: shareMessage,
           url: inviteLink,
         });
@@ -123,6 +124,10 @@ export default function Invite() {
     // If successful, the useEffect watching couple will redirect
   };
 
+  const handleEditProfile = () => {
+    router.push('/(auth)/setup-profile');
+  };
+
   const handleSignOut = async () => {
     // Reset couple store before signing out
     const coupleStore = useCoupleStore.getState();
@@ -143,15 +148,31 @@ export default function Invite() {
     );
   }
 
+  const userName = user?.display_name || 'You';
+  const userAvatar = user?.avatar_url;
+  const userInitial = userName.charAt(0).toUpperCase();
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {/* Logo */}
-        <View style={styles.logoContainer}>
-          <View style={styles.logoCircles}>
-            <LinearGradient colors={[colors.coral, colors.coralLight]} style={[styles.circle, styles.circleLeft]} />
-            <LinearGradient colors={[colors.purple, colors.purpleLight]} style={[styles.circle, styles.circleRight]} />
-          </View>
+        {/* User Profile Preview */}
+        <View style={styles.profilePreview}>
+          <TouchableOpacity onPress={handleEditProfile} style={styles.avatarContainer}>
+            {userAvatar ? (
+              <Image source={{ uri: userAvatar }} style={styles.avatar} />
+            ) : (
+              <LinearGradient colors={[colors.coral, colors.coralLight]} style={styles.avatar}>
+                <Text style={styles.avatarText}>{userInitial}</Text>
+              </LinearGradient>
+            )}
+            <View style={styles.editBadge}>
+              <Text style={styles.editBadgeText}>✏️</Text>
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.userName}>{userName}</Text>
+          <TouchableOpacity onPress={handleEditProfile}>
+            <Text style={styles.editProfileLink}>Edit Profile</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Mode Toggle */}
@@ -263,35 +284,60 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 40,
+    paddingTop: 24,
   },
-  logoContainer: {
+  profilePreview: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
-  logoCircles: {
-    width: 60,
-    height: 40,
+  avatarContainer: {
     position: 'relative',
   },
-  circle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontFamily: fontFamilies.bodyBold,
+    fontSize: 32,
+    color: colors.textPrimary,
+  },
+  editBadge: {
     position: 'absolute',
-  },
-  circleLeft: {
-    left: 0,
-  },
-  circleRight: {
+    bottom: 0,
     right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.purpleLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: colors.darkBg,
+  },
+  editBadgeText: {
+    fontSize: 12,
+  },
+  userName: {
+    fontFamily: fontFamilies.bodySemiBold,
+    fontSize: 18,
+    color: colors.textPrimary,
+    marginTop: 12,
+  },
+  editProfileLink: {
+    ...typography.bodySmall,
+    color: colors.purpleLight,
+    marginTop: 4,
   },
   toggleContainer: {
     flexDirection: 'row',
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 12,
     padding: 4,
-    marginBottom: 32,
+    marginBottom: 24,
   },
   toggleButton: {
     flex: 1,
@@ -320,7 +366,7 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textMuted,
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   codeBox: {
     backgroundColor: 'rgba(255,255,255,0.05)',
