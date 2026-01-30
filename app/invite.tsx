@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Platform } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, Redirect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '../components/ui/Button';
@@ -13,18 +13,32 @@ import { typography, fontFamilies } from '../constants/typography';
  * Public invite landing page
  * Handles URLs like: https://betterhalf.newbold.cloud/invite?code=ABC123
  * 
+ * If no code is provided, redirects to the appropriate page.
  * Shows a welcome screen for new users with the invite code,
  * or auto-joins for logged-in users
  */
 export default function InviteLanding() {
   const params = useLocalSearchParams<{ code?: string }>();
-  const { session, isLoading: authLoading } = useAuthStore();
-  const { couple, joinCouple, fetchCouple } = useCoupleStore();
+  const { session, isLoading: authLoading, isInitialized } = useAuthStore();
+  const { couple, joinCouple, fetchCouple, hasFetched } = useCoupleStore();
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState('');
   const [joined, setJoined] = useState(false);
 
   const inviteCode = params.code?.toUpperCase();
+
+  // If no invite code provided, redirect based on auth state
+  useEffect(() => {
+    if (isInitialized && !authLoading && !inviteCode) {
+      if (session?.user) {
+        // Logged in, no code -> go to invite page in auth flow
+        router.replace('/(auth)/invite');
+      } else {
+        // Not logged in, no code -> go to welcome
+        router.replace('/(auth)/welcome');
+      }
+    }
+  }, [isInitialized, authLoading, session, inviteCode]);
 
   useEffect(() => {
     // If user is logged in and has a code, try to auto-join
@@ -80,8 +94,8 @@ export default function InviteLanding() {
     }
   };
 
-  // Show loading while checking auth
-  if (authLoading) {
+  // Show loading while checking auth or if no code (will redirect)
+  if (!isInitialized || authLoading || !inviteCode) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContent}>
@@ -141,12 +155,10 @@ export default function InviteLanding() {
           Someone special wants to connect with you on Better Half
         </Text>
 
-        {inviteCode && (
-          <View style={styles.codeBox}>
-            <Text style={styles.codeLabel}>INVITE CODE</Text>
-            <Text style={styles.codeValue}>{inviteCode}</Text>
-          </View>
-        )}
+        <View style={styles.codeBox}>
+          <Text style={styles.codeLabel}>INVITE CODE</Text>
+          <Text style={styles.codeValue}>{inviteCode}</Text>
+        </View>
 
         {error && <Text style={styles.error}>{error}</Text>}
 
@@ -176,7 +188,7 @@ export default function InviteLanding() {
               title={isJoining ? "Joining..." : "Accept Invitation"} 
               onPress={handleAutoJoin}
               loading={isJoining}
-              disabled={isJoining || !inviteCode}
+              disabled={isJoining}
               fullWidth 
             />
             <View style={{ height: 12 }} />
