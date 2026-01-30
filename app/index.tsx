@@ -1,7 +1,7 @@
 import { Redirect } from 'expo-router';
 import { useAuthStore } from '../stores/authStore';
 import { useCoupleStore } from '../stores/coupleStore';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { colors } from '../constants/colors';
 
@@ -11,17 +11,20 @@ export default function Index() {
   const [isPasswordReset, setIsPasswordReset] = useState(false);
   const [resetUrl, setResetUrl] = useState<string>('/(auth)/reset-password');
   const [urlChecked, setUrlChecked] = useState(false);
-  const fetchTriggered = useRef(false);
+  const [isInviteLink, setIsInviteLink] = useState(false);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
 
-  // Check if this is a password reset link - only runs once
+  // Check URL parameters - only runs once on mount
   useEffect(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const url = window.location.href;
       const search = window.location.search;
       const hash = window.location.hash;
       const pathname = window.location.pathname;
+      const searchParams = new URLSearchParams(search);
       
-      const hasCode = url.includes('code=');
+      // Check for password reset
+      const hasCode = url.includes('code=') && !pathname.includes('/invite');
       const hasRecoveryHash = hash.includes('type=recovery');
       const isResetPath = pathname.includes('reset-password');
       
@@ -32,23 +35,30 @@ export default function Index() {
         const resetPath = `/(auth)/reset-password${search}${hash}`;
         setResetUrl(resetPath);
         setIsPasswordReset(true);
+        setUrlChecked(true);
+        return;
+      }
+      
+      // Check for invite link with code
+      const code = searchParams.get('code');
+      if (pathname === '/invite' && code) {
+        console.log('[Index] Invite link detected with code:', code);
+        setInviteCode(code);
+        setIsInviteLink(true);
+        setUrlChecked(true);
+        return;
       }
     }
     setUrlChecked(true);
   }, []);
 
-  // Fetch couple data when session is available
+  // Fetch couple data when session is available and not already fetched
   useEffect(() => {
-    if (session?.user?.id && !hasFetched && !fetchTriggered.current && !isPasswordReset && urlChecked) {
-      fetchTriggered.current = true;
+    if (session?.user?.id && !hasFetched && !isPasswordReset && urlChecked && !isInviteLink) {
+      console.log('[Index] Fetching couple data for user:', session.user.id);
       fetchCouple(session.user.id);
     }
-  }, [session?.user?.id, hasFetched, isPasswordReset, urlChecked]);
-
-  // Reset fetch trigger if user changes
-  useEffect(() => {
-    fetchTriggered.current = false;
-  }, [session?.user?.id]);
+  }, [session?.user?.id, hasFetched, isPasswordReset, urlChecked, isInviteLink, fetchCouple]);
 
   // Still checking URL
   if (!urlChecked) {
@@ -62,6 +72,11 @@ export default function Index() {
   // Password reset flow - redirect to reset-password page with params preserved
   if (isPasswordReset) {
     return <Redirect href={resetUrl as any} />;
+  }
+
+  // Invite link with code - redirect to public invite page
+  if (isInviteLink && inviteCode) {
+    return <Redirect href={`/invite?code=${inviteCode}` as any} />;
   }
 
   // Still initializing auth
