@@ -161,7 +161,7 @@ export default function Invite() {
             onPress={() => { setMode('create'); setError(''); setSuccess(''); }}
           >
             <Text style={[styles.toggleText, mode === 'create' && styles.toggleTextActive]}>
-              Invite Partner
+              Invite Someone
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -176,7 +176,7 @@ export default function Invite() {
 
         {mode === 'create' ? (
           <>
-            <Text style={styles.title}>Invite Your Partner</Text>
+            <Text style={styles.title}>Invite Your Person</Text>
             <Text style={styles.subtitle}>Share this code with your better half</Text>
 
             {couple?.invite_code ? (
@@ -208,7 +208,7 @@ export default function Invite() {
           </>
         ) : (
           <>
-            <Text style={styles.title}>Join Your Partner</Text>
+            <Text style={styles.title}>Connect With Someone</Text>
             <Text style={styles.subtitle}>Enter the invite code they shared</Text>
 
             <Input
