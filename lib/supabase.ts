@@ -141,6 +141,7 @@ export type Tables = {
     email: string;
     display_name: string | null;
     avatar_url: string | null;
+    profile_completed: boolean;
     created_at: string;
     updated_at: string;
   };
@@ -346,5 +347,3 @@ export function generateInviteCode(): string {
   }
   return code;
 }
-
-
