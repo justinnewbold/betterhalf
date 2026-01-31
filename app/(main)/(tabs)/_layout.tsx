@@ -1,37 +1,54 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors } from '../../../constants/colors';
+import { useThemeStore } from '../../../stores/themeStore';
+import { getThemeColors } from '../../../constants/colors';
 
-function TabIcon({ icon, label, focused }: { icon: string; label: string; focused: boolean }) {
+function TabIcon({ icon, label, focused, isDark }: { icon: string; label: string; focused: boolean; isDark: boolean }) {
+  const themeColors = getThemeColors(isDark);
+  
   return (
     <View style={styles.tabItem}>
       <View style={styles.iconContainer}>
         <Text style={[styles.tabIcon, focused && styles.tabIconFocused]}>{icon}</Text>
       </View>
-      <Text style={[styles.tabLabel, focused && styles.tabLabelFocused]}>{label}</Text>
+      <Text style={[
+        styles.tabLabel, 
+        { color: themeColors.textMuted },
+        focused && { color: themeColors.coral }
+      ]}>{label}</Text>
     </View>
   );
 }
 
 export default function TabsLayout() {
+  const { isDark } = useThemeStore();
+  const themeColors = getThemeColors(isDark);
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: {
+          backgroundColor: themeColors.cardBackground,
+          borderTopColor: themeColors.cardBorder,
+          borderTopWidth: 1,
+          height: 80,
+          paddingTop: 8,
+          paddingBottom: 20,
+        },
         tabBarShowLabel: false,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon icon="🏠" label="Home" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon="🏠" label="Home" focused={focused} isDark={isDark} />,
         }}
       />
       <Tabs.Screen
         name="play"
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon icon="🎮" label="Play" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon="🎮" label="Play" focused={focused} isDark={isDark} />,
         }}
       />
       {/* Friends tab hidden for MVP - will be enabled in future release */}
@@ -44,13 +61,13 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="stats"
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon icon="📊" label="Stats" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon="📊" label="Stats" focused={focused} isDark={isDark} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon icon="👤" label="Profile" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon="👤" label="Profile" focused={focused} isDark={isDark} />,
         }}
       />
     </Tabs>
@@ -58,14 +75,6 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: colors.cardDark,
-    borderTopColor: 'rgba(255,255,255,0.1)',
-    borderTopWidth: 1,
-    height: 80,
-    paddingTop: 8,
-    paddingBottom: 20,
-  },
   tabItem: {
     alignItems: 'center',
     gap: 4,
@@ -82,9 +91,5 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 11,
-    color: colors.textMuted,
-  },
-  tabLabelFocused: {
-    color: colors.coral,
   },
 });
