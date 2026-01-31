@@ -5,10 +5,13 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useFonts, PlayfairDisplay_600SemiBold, PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import { PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans';
 import { useAuthStore } from '../stores/authStore';
-import { colors } from '../constants/colors';
+import { useThemeStore } from '../stores/themeStore';
+import { colors, getThemeColors } from '../constants/colors';
 
 export default function RootLayout() {
   const { initialize, isInitialized, isLoading } = useAuthStore();
+  const { isDark, initialize: initializeTheme } = useThemeStore();
+  const themeColors = getThemeColors(isDark);
 
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_600SemiBold,
@@ -21,11 +24,12 @@ export default function RootLayout() {
 
   useEffect(() => {
     initialize();
+    initializeTheme();
   }, []);
 
   if (!fontsLoaded || !isInitialized) {
     return (
-      <View style={styles.loading}>
+      <View style={[styles.loading, { backgroundColor: themeColors.background }]}>
         <ActivityIndicator size="large" color={colors.purple} />
       </View>
     );
@@ -33,11 +37,11 @@ export default function RootLayout() {
 
   return (
     <>
-      <StatusBar style="light" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: colors.darkBg },
+          contentStyle: { backgroundColor: themeColors.background },
           animation: 'fade',
         }}
       >
@@ -52,7 +56,6 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   loading: {
     flex: 1,
-    backgroundColor: colors.darkBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
