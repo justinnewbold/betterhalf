@@ -11,7 +11,8 @@ import { useAuthStore } from '../../../stores/authStore';
 import { useCoupleStore } from '../../../stores/coupleStore';
 import { usePresenceStore } from '../../../stores/presenceStore';
 import { useNotificationStore } from '../../../stores/notificationStore';
-import { colors } from '../../../constants/colors';
+import { useThemeStore } from '../../../stores/themeStore';
+import { colors, getThemeColors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
 
 export default function Home() {
@@ -19,6 +20,8 @@ export default function Home() {
   const { couple, partnerProfile, stats, streak: streakData } = useCoupleStore();
   const { initializePresence, updateMyState, isConnected } = usePresenceStore();
   const { registerForPushNotifications, isPermissionGranted } = useNotificationStore();
+  const { isDark } = useThemeStore();
+  const themeColors = getThemeColors(isDark);
 
   // Auto-register for notifications (one-time check)
   useEffect(() => {
@@ -65,13 +68,13 @@ export default function Home() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>{getGreeting()}</Text>
-            <Text style={styles.names}>
+            <Text style={[styles.greeting, { color: themeColors.textMuted }]}>{getGreeting()}</Text>
+            <Text style={[styles.names, { color: themeColors.textPrimary }]}>
               {userName} & {connectionName}
             </Text>
             {couple?.status === 'active' && (
@@ -81,10 +84,13 @@ export default function Home() {
             )}
           </View>
           <LinearGradient
-            colors={['rgba(255,107,107,0.2)', 'rgba(192,132,252,0.2)']}
+            colors={isDark 
+              ? ['rgba(255,107,107,0.2)', 'rgba(192,132,252,0.2)']
+              : ['rgba(232,85,85,0.15)', 'rgba(168,85,247,0.15)']
+            }
             style={styles.streakBadge}
           >
-            <Text style={styles.streakText}>🔥 {streak} days</Text>
+            <Text style={[styles.streakText, { color: themeColors.textPrimary }]}>🔥 {streak} days</Text>
           </LinearGradient>
         </View>
 
@@ -94,14 +100,14 @@ export default function Home() {
         {/* Sync Score Ring */}
         <View style={styles.ringContainer}>
           <SyncScoreRing percentage={syncScore} size="medium" showLabel />
-          <Text style={styles.syncLabel}>SYNC SCORE</Text>
+          <Text style={[styles.syncLabel, { color: themeColors.textMuted }]}>SYNC SCORE</Text>
         </View>
 
         {/* Daily Sync Card */}
         <Card style={styles.card}>
-          <Text style={styles.cardLabel}>TODAY'S SYNC</Text>
-          <Text style={styles.cardTitle}>Ready to play today's question?</Text>
-          <Text style={styles.cardDescription}>
+          <Text style={[styles.cardLabel, { color: themeColors.textMuted }]}>TODAY'S SYNC</Text>
+          <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]}>Ready to play today's question?</Text>
+          <Text style={[styles.cardDescription, { color: themeColors.textSecondary }]}>
             Answer the same question as your person and see if you're in sync!
           </Text>
           <Button title="Play Daily Sync" onPress={handleDailySync} fullWidth size="small" />
@@ -109,9 +115,9 @@ export default function Home() {
 
         {/* Date Night Card */}
         <Card style={styles.card}>
-          <Text style={styles.cardLabel}>DATE NIGHT</Text>
-          <Text style={styles.cardTitle}>10 questions, deeper connection</Text>
-          <Text style={styles.cardDescription}>
+          <Text style={[styles.cardLabel, { color: themeColors.textMuted }]}>DATE NIGHT</Text>
+          <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]}>10 questions, deeper connection</Text>
+          <Text style={[styles.cardDescription, { color: themeColors.textSecondary }]}>
             Perfect for a cozy evening together. Discover new things about each other.
           </Text>
           <Button
@@ -124,24 +130,24 @@ export default function Home() {
         </Card>
 
         {/* Quick Stats */}
-        <View style={styles.quickStats}>
+        <View style={[styles.quickStats, { backgroundColor: themeColors.cardBackground }]}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats?.total_games || 0}</Text>
-            <Text style={styles.statLabel}>Games Played</Text>
+            <Text style={[styles.statValue, { color: themeColors.purpleLight }]}>{stats?.total_games || 0}</Text>
+            <Text style={[styles.statLabel, { color: themeColors.textMuted }]}>Games Played</Text>
           </View>
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: themeColors.cardBorder }]} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats?.total_matches || 0}</Text>
-            <Text style={styles.statLabel}>Matches</Text>
+            <Text style={[styles.statValue, { color: themeColors.purpleLight }]}>{stats?.total_matches || 0}</Text>
+            <Text style={[styles.statLabel, { color: themeColors.textMuted }]}>Matches</Text>
           </View>
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: themeColors.cardBorder }]} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>
+            <Text style={[styles.statValue, { color: themeColors.purpleLight }]}>
               {stats?.total_questions 
                 ? Math.round((stats.total_matches / stats.total_questions) * 100) 
                 : 0}%
             </Text>
-            <Text style={styles.statLabel}>Match Rate</Text>
+            <Text style={[styles.statLabel, { color: themeColors.textMuted }]}>Match Rate</Text>
           </View>
         </View>
       </ScrollView>
@@ -152,7 +158,6 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.darkBg,
   },
   scroll: {
     flex: 1,
@@ -170,12 +175,10 @@ const styles = StyleSheet.create({
   },
   greeting: {
     ...typography.bodySmall,
-    color: colors.textMuted,
   },
   names: {
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 20,
-    color: colors.textPrimary,
   },
   partnerStatusRow: {
     marginTop: 4,
@@ -187,7 +190,6 @@ const styles = StyleSheet.create({
   },
   streakText: {
     ...typography.label,
-    color: colors.textPrimary,
   },
   ringContainer: {
     alignItems: 'center',
@@ -195,7 +197,6 @@ const styles = StyleSheet.create({
   },
   syncLabel: {
     ...typography.caption,
-    color: colors.textMuted,
     marginTop: 8,
   },
   card: {
@@ -203,23 +204,19 @@ const styles = StyleSheet.create({
   },
   cardLabel: {
     ...typography.captionBold,
-    color: colors.textMuted,
     marginBottom: 8,
   },
   cardTitle: {
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 17,
-    color: colors.textPrimary,
     marginBottom: 6,
   },
   cardDescription: {
     ...typography.bodySmall,
-    color: colors.textSecondary,
     marginBottom: 16,
   },
   quickStats: {
     flexDirection: 'row',
-    backgroundColor: colors.cardDark,
     borderRadius: 16,
     padding: 20,
     marginTop: 8,
@@ -231,16 +228,13 @@ const styles = StyleSheet.create({
   statValue: {
     fontFamily: fontFamilies.bodyBold,
     fontSize: 24,
-    color: colors.purpleLight,
     marginBottom: 4,
   },
   statLabel: {
     ...typography.caption,
-    color: colors.textMuted,
   },
   statDivider: {
     width: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
     marginHorizontal: 12,
   },
 });
