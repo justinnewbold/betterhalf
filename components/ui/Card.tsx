@@ -1,32 +1,49 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors } from '../../constants/colors';
+import { useThemeStore } from '../../stores/themeStore';
+import { getThemeColors } from '../../constants/colors';
 
 interface CardProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: ViewStyle | ViewStyle[];
   variant?: 'default' | 'gradient' | 'success' | 'error';
 }
 
 export function Card({ children, style, variant = 'default' }: CardProps) {
+  const { isDark } = useThemeStore();
+  const themeColors = getThemeColors(isDark);
+
   if (variant === 'gradient') {
     return (
       <LinearGradient
-        colors={['rgba(255,107,107,0.15)', 'rgba(192,132,252,0.15)']}
+        colors={isDark 
+          ? ['rgba(255,107,107,0.15)', 'rgba(192,132,252,0.15)']
+          : ['rgba(232,85,85,0.1)', 'rgba(147,51,234,0.1)']
+        }
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.card, styles.gradientBorder, style]}
+        style={[
+          styles.card, 
+          styles.gradientBorder, 
+          { borderRadius: 16, padding: 16 },
+          style
+        ]}
       >
         {children}
       </LinearGradient>
     );
   }
 
+  const baseStyle = {
+    backgroundColor: themeColors.cardBackground,
+    borderColor: themeColors.cardBorder,
+  };
+
   const variantStyles = {
-    default: styles.card,
-    success: [styles.card, styles.successCard],
-    error: [styles.card, styles.errorCard],
+    default: [styles.card, baseStyle],
+    success: [styles.card, baseStyle, styles.successCard],
+    error: [styles.card, baseStyle, styles.errorCard],
   };
 
   return (
@@ -38,11 +55,9 @@ export function Card({ children, style, variant = 'default' }: CardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.cardDark,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: colors.cardDarkBorder,
   },
   gradientBorder: {
     borderWidth: 0,
