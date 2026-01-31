@@ -6,6 +6,7 @@ import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { useAuthStore } from '../../../stores/authStore';
 import { useCoupleStore } from '../../../stores/coupleStore';
+import { useThemeStore } from '../../../stores/themeStore';
 import { getSupabase, TABLES } from '../../../lib/supabase';
 import { colors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
@@ -13,10 +14,20 @@ import { typography, fontFamilies } from '../../../constants/typography';
 export default function Settings() {
   const { user } = useAuthStore();
   const { couple, partnerProfile, reset: resetCoupleStore } = useCoupleStore();
+  const { mode: themeMode, isDark } = useThemeStore();
   const [showResetModal, setShowResetModal] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
 
   const connectionName = partnerProfile?.display_name || 'Your Person';
+
+  const getThemeModeLabel = () => {
+    switch (themeMode) {
+      case 'light': return 'Light';
+      case 'dark': return 'Dark';
+      case 'system': return 'System';
+      default: return 'Dark';
+    }
+  };
 
   const handleClose = () => {
     router.back();
@@ -149,6 +160,12 @@ export default function Settings() {
             label="Notifications" 
             onPress={() => router.push('/(main)/settings/notifications')} 
           />
+          <MenuItem 
+            icon="🎨" 
+            label="Appearance" 
+            subtitle={getThemeModeLabel()}
+            onPress={() => router.push('/(main)/settings/appearance')} 
+          />
         </Card>
 
         {/* Game Settings */}
@@ -230,7 +247,7 @@ export default function Settings() {
           <Text style={styles.sectionTitle}>About</Text>
           <View style={styles.aboutRow}>
             <Text style={styles.aboutLabel}>Version</Text>
-            <Text style={styles.aboutValue}>1.1.0</Text>
+            <Text style={styles.aboutValue}>1.2.0</Text>
           </View>
         </Card>
       </ScrollView>
