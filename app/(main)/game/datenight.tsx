@@ -3,32 +3,57 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../../components/ui/Button';
-import { colors } from '../../../constants/colors';
+import { useThemeStore } from '../../../stores/themeStore';
+import { colors, getThemeColors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
 
 export default function DateNight() {
+  const { isDark } = useThemeStore();
+  const themeColors = getThemeColors(isDark);
+
+  const dynamicStyles = {
+    container: {
+      backgroundColor: themeColors.background,
+    },
+    closeButton: {
+      color: themeColors.textMuted,
+    },
+    headerTitle: {
+      color: themeColors.textPrimary,
+    },
+    title: {
+      color: themeColors.textPrimary,
+    },
+    subtitle: {
+      color: themeColors.textMuted,
+    },
+    feature: {
+      color: themeColors.textSecondary,
+    },
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.closeButton}>✕</Text>
+          <Text style={[styles.closeButton, dynamicStyles.closeButton]}>✕</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Date Night</Text>
+        <Text style={[styles.headerTitle, dynamicStyles.headerTitle]}>Date Night</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <View style={styles.content}>
         <Text style={styles.emoji}>🌙</Text>
-        <Text style={styles.title}>Date Night Mode</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.title, dynamicStyles.title]}>Date Night Mode</Text>
+        <Text style={[styles.subtitle, dynamicStyles.subtitle]}>
           10 questions for a deeper connection.{'\n'}
           Coming soon in the next update!
         </Text>
 
         <View style={styles.features}>
-          <Text style={styles.feature}>✓ 10 curated questions</Text>
-          <Text style={styles.feature}>✓ Mix of all categories</Text>
-          <Text style={styles.feature}>✓ Perfect for quality time</Text>
+          <Text style={[styles.feature, dynamicStyles.feature]}>✓ 10 curated questions</Text>
+          <Text style={[styles.feature, dynamicStyles.feature]}>✓ Mix of all categories</Text>
+          <Text style={[styles.feature, dynamicStyles.feature]}>✓ Perfect for quality time</Text>
         </View>
 
         <Button
@@ -45,7 +70,6 @@ export default function DateNight() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.darkBg,
   },
   header: {
     flexDirection: 'row',
@@ -56,13 +80,11 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     fontSize: 20,
-    color: colors.textMuted,
     padding: 4,
   },
   headerTitle: {
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 17,
-    color: colors.textPrimary,
   },
   content: {
     flex: 1,
@@ -77,12 +99,10 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fontFamilies.display,
     fontSize: 28,
-    color: colors.textPrimary,
     marginBottom: 12,
   },
   subtitle: {
     ...typography.body,
-    color: colors.textMuted,
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 24,
@@ -93,7 +113,6 @@ const styles = StyleSheet.create({
   },
   feature: {
     ...typography.body,
-    color: colors.textSecondary,
     marginBottom: 12,
   },
 });
