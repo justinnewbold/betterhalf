@@ -1,153 +1,204 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { Card } from '../../../components/ui/Card';
-import { colors } from '../../../constants/colors';
+import { useThemeStore } from '../../../stores/themeStore';
+import { getThemeColors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
 import { useCoupleStore } from '../../../stores/coupleStore';
+import { useAchievementStore } from '../../../stores/achievementStore';
+import { useAuthStore } from '../../../stores/authStore';
+import type { Tables } from '../../../lib/supabase';
 
-interface Achievement {
-  id: string;
-  icon: string;
-  title: string;
-  description: string;
-  requirement: number;
-  type: 'streak' | 'games' | 'matches' | 'special';
-}
-
-const ACHIEVEMENTS: Achievement[] = [
-  // Streak achievements
-  { id: 'streak_3', icon: '🔥', title: 'Getting Started', description: 'Play 3 days in a row', requirement: 3, type: 'streak' },
-  { id: 'streak_7', icon: '🔥', title: 'Week Warrior', description: 'Play 7 days in a row', requirement: 7, type: 'streak' },
-  { id: 'streak_14', icon: '🔥', title: 'Two Week Streak', description: 'Play 14 days in a row', requirement: 14, type: 'streak' },
-  { id: 'streak_30', icon: '🔥', title: 'Monthly Master', description: 'Play 30 days in a row', requirement: 30, type: 'streak' },
-  { id: 'streak_100', icon: '💯', title: 'Century Club', description: 'Play 100 days in a row', requirement: 100, type: 'streak' },
-  
-  // Games played achievements
-  { id: 'games_10', icon: '🎮', title: 'Just Getting Started', description: 'Complete 10 games', requirement: 10, type: 'games' },
-  { id: 'games_50', icon: '🎮', title: 'Regular Player', description: 'Complete 50 games', requirement: 50, type: 'games' },
-  { id: 'games_100', icon: '🎮', title: 'Dedicated Duo', description: 'Complete 100 games', requirement: 100, type: 'games' },
-  { id: 'games_500', icon: '🎮', title: 'Power Pair', description: 'Complete 500 games', requirement: 500, type: 'games' },
-  
-  // Match achievements
-  { id: 'matches_10', icon: '💕', title: 'In Sync', description: 'Match 10 times', requirement: 10, type: 'matches' },
-  { id: 'matches_50', icon: '💕', title: 'Mind Readers', description: 'Match 50 times', requirement: 50, type: 'matches' },
-  { id: 'matches_100', icon: '💕', title: 'Soulmates', description: 'Match 100 times', requirement: 100, type: 'matches' },
-  
-  // Special achievements
-  { id: 'first_match', icon: '⭐', title: 'First Match', description: 'Get your first match', requirement: 1, type: 'special' },
-  { id: 'perfect_day', icon: '✨', title: 'Perfect Day', description: 'Match on all questions in a day', requirement: 1, type: 'special' },
-];
+type Achievement = Tables['achievements'];
 
 export default function AchievementsScreen() {
+  const { user } = useAuthStore();
   const { stats, streak } = useCoupleStore();
+  const { isDark } = useThemeStore();
+  const themeColors = getThemeColors(isDark);
+  const { 
+    achievements, 
+    fetchAchievements, 
+    isUnlocked, 
+    getProgress,
+    isLoading,
+    hasFetched,
+  } = useAchievementStore();
   
   const currentStreak = streak?.current_streak || 0;
   const totalGames = stats?.total_games || 0;
   const totalMatches = stats?.total_matches || 0;
   
-  const getProgress = (achievement: Achievement): number => {
-    switch (achievement.type) {
-      case 'streak':
-        return Math.min(currentStreak / achievement.requirement, 1);
-      case 'games':
-        return Math.min(totalGames / achievement.requirement, 1);
-      case 'matches':
-        return Math.min(totalMatches / achievement.requirement, 1);
-      case 'special':
-        // Special achievements need specific tracking
-        if (achievement.id === 'first_match') return totalMatches > 0 ? 1 : 0;
-        return 0;
-      default:
-        return 0;
+  const currentStats = useMemo(() => ({
+    currentStreak,
+    totalGames,
+    totalMatches,
+  }), [currentStreak, totalGames, totalMatches]);
+
+  useEffect(() => {
+    if (user?.id && !hasFetched) {
+      fetchAchievements(user.id);
+    }
+  }, [user?.id, hasFetched]);
+
+  const handleRefresh = () => {
+    if (user?.id) {
+      // Reset hasFetched to allow refetch
+      useAchievementStore.setState({ hasFetched: false });
+      fetchAchievements(user.id);
     }
   };
+
+  const streakAchievements = achievements.filter(a => a.requirement_type === 'streak');
+  const gameAchievements = achievements.filter(a => a.requirement_type === 'games');
+  const matchAchievements = achievements.filter(a => a.requirement_type === 'matches');
+  const specialAchievements = achievements.filter(a => a.requirement_type === 'special');
   
-  const isUnlocked = (achievement: Achievement): boolean => {
-    return getProgress(achievement) >= 1;
-  };
-  
-  const unlockedCount = ACHIEVEMENTS.filter(isUnlocked).length;
-  
+  const unlockedCount = achievements.filter(a => isUnlocked(a.id)).length;
+
   const renderAchievement = (achievement: Achievement) => {
-    const unlocked = isUnlocked(achievement);
-    const progress = getProgress(achievement);
+    const unlocked = isUnlocked(achievement.id);
+    const progress = getProgress(achievement, currentStats);
+    
+    let currentValue = 0;
+    switch (achievement.requirement_type) {
+      case 'streak': currentValue = currentStreak; break;
+      case 'games': currentValue = totalGames; break;
+      case 'matches': currentValue = totalMatches; break;
+      case 'special': currentValue = progress >= 1 ? 1 : 0; break;
+    }
     
     return (
-      <View key={achievement.id} style={[styles.achievementItem, !unlocked && styles.locked]}>
-        <View style={[styles.iconContainer, unlocked && styles.iconUnlocked]}>
-          <Text style={styles.icon}>{achievement.icon}</Text>
+      <View 
+        key={achievement.id} 
+        style={[
+          styles.achievementItem, 
+          !unlocked && styles.locked,
+        ]}
+      >
+        <View style={[
+          styles.iconContainer, 
+          unlocked && { backgroundColor: themeColors.primary + '20' },
+          !unlocked && { backgroundColor: themeColors.surface },
+        ]}>
+          <Text style={styles.icon}>{achievement.icon || '🏆'}</Text>
         </View>
         <View style={styles.achievementInfo}>
-          <Text style={[styles.achievementTitle, !unlocked && styles.lockedText]}>
-            {achievement.title}
+          <Text style={[
+            styles.achievementTitle, 
+            { color: unlocked ? themeColors.text : themeColors.textMuted },
+          ]}>
+            {achievement.name}
           </Text>
-          <Text style={[styles.achievementDesc, !unlocked && styles.lockedText]}>
+          <Text style={[
+            styles.achievementDesc, 
+            { color: unlocked ? themeColors.textSecondary : themeColors.textMuted },
+          ]}>
             {achievement.description}
           </Text>
           {!unlocked && (
             <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+              <View style={[styles.progressBar, { backgroundColor: themeColors.surface }]}>
+                <View 
+                  style={[
+                    styles.progressFill, 
+                    { 
+                      width: `${Math.min(progress * 100, 100)}%`,
+                      backgroundColor: themeColors.primary,
+                    },
+                  ]} 
+                />
               </View>
-              <Text style={styles.progressText}>
-                {Math.round(progress * achievement.requirement)}/{achievement.requirement}
+              <Text style={[styles.progressText, { color: themeColors.textMuted }]}>
+                {Math.min(currentValue, achievement.requirement_value)}/{achievement.requirement_value}
               </Text>
             </View>
           )}
         </View>
         {unlocked && (
-          <Text style={styles.checkmark}>✓</Text>
+          <Text style={[styles.checkmark, { color: themeColors.success }]}>✓</Text>
         )}
       </View>
     );
   };
 
+  const renderSection = (title: string, items: Achievement[]) => {
+    if (items.length === 0) return null;
+    return (
+      <>
+        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>{title}</Text>
+        <Card style={styles.achievementsCard}>
+          {items.map(renderAchievement)}
+        </Card>
+      </>
+    );
+  };
+
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{ title: 'Achievements', headerShown: true }} />
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['bottom']}>
+      <Stack.Screen options={{ 
+        title: 'Achievements', 
+        headerShown: true,
+        headerStyle: { backgroundColor: themeColors.background },
+        headerTintColor: themeColors.text,
+      }} />
       
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
+        }
+      >
         {/* Summary Card */}
         <Card style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>🏆 Your Progress</Text>
+          <Text style={[styles.summaryTitle, { color: themeColors.text }]}>🏆 Your Progress</Text>
           <View style={styles.summaryStats}>
             <View style={styles.summaryStat}>
-              <Text style={styles.summaryNumber}>{unlockedCount}</Text>
-              <Text style={styles.summaryLabel}>Unlocked</Text>
+              <Text style={[styles.summaryNumber, { color: themeColors.primary }]}>
+                {unlockedCount}
+              </Text>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>
+                Unlocked
+              </Text>
             </View>
-            <View style={styles.summaryDivider} />
+            <View style={[styles.summaryDivider, { backgroundColor: themeColors.border }]} />
             <View style={styles.summaryStat}>
-              <Text style={styles.summaryNumber}>{ACHIEVEMENTS.length - unlockedCount}</Text>
-              <Text style={styles.summaryLabel}>Remaining</Text>
+              <Text style={[styles.summaryNumber, { color: themeColors.textMuted }]}>
+                {achievements.length - unlockedCount}
+              </Text>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>
+                Remaining
+              </Text>
+            </View>
+          </View>
+          
+          {/* Current Stats Mini Display */}
+          <View style={[styles.miniStats, { borderTopColor: themeColors.border }]}>
+            <View style={styles.miniStat}>
+              <Text style={styles.miniIcon}>🔥</Text>
+              <Text style={[styles.miniValue, { color: themeColors.text }]}>{currentStreak}</Text>
+              <Text style={[styles.miniLabel, { color: themeColors.textMuted }]}>Streak</Text>
+            </View>
+            <View style={styles.miniStat}>
+              <Text style={styles.miniIcon}>🎮</Text>
+              <Text style={[styles.miniValue, { color: themeColors.text }]}>{totalGames}</Text>
+              <Text style={[styles.miniLabel, { color: themeColors.textMuted }]}>Games</Text>
+            </View>
+            <View style={styles.miniStat}>
+              <Text style={styles.miniIcon}>💕</Text>
+              <Text style={[styles.miniValue, { color: themeColors.text }]}>{totalMatches}</Text>
+              <Text style={[styles.miniLabel, { color: themeColors.textMuted }]}>Matches</Text>
             </View>
           </View>
         </Card>
         
-        {/* Streak Achievements */}
-        <Text style={styles.sectionTitle}>🔥 Streak Achievements</Text>
-        <Card style={styles.achievementsCard}>
-          {ACHIEVEMENTS.filter(a => a.type === 'streak').map(renderAchievement)}
-        </Card>
-        
-        {/* Games Achievements */}
-        <Text style={styles.sectionTitle}>🎮 Games Played</Text>
-        <Card style={styles.achievementsCard}>
-          {ACHIEVEMENTS.filter(a => a.type === 'games').map(renderAchievement)}
-        </Card>
-        
-        {/* Match Achievements */}
-        <Text style={styles.sectionTitle}>💕 Matches</Text>
-        <Card style={styles.achievementsCard}>
-          {ACHIEVEMENTS.filter(a => a.type === 'matches').map(renderAchievement)}
-        </Card>
-        
-        {/* Special Achievements */}
-        <Text style={styles.sectionTitle}>⭐ Special</Text>
-        <Card style={styles.achievementsCard}>
-          {ACHIEVEMENTS.filter(a => a.type === 'special').map(renderAchievement)}
-        </Card>
+        {renderSection('🔥 Streak Achievements', streakAchievements)}
+        {renderSection('🎮 Games Played', gameAchievements)}
+        {renderSection('💕 Matches', matchAchievements)}
+        {renderSection('⭐ Special', specialAchievements)}
         
         <View style={styles.bottomPadding} />
       </ScrollView>
@@ -158,7 +209,6 @@ export default function AchievementsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   scrollView: {
     flex: 1,
@@ -170,8 +220,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryTitle: {
-    ...typography.h2,
-    color: colors.text,
+    fontFamily: fontFamilies.bodyBold,
+    fontSize: 20,
     marginBottom: 16,
   },
   summaryStats: {
@@ -185,21 +235,41 @@ const styles = StyleSheet.create({
   summaryNumber: {
     fontSize: 36,
     fontFamily: fontFamilies.bold,
-    color: colors.primary,
   },
   summaryLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
+    fontSize: 13,
     marginTop: 4,
   },
   summaryDivider: {
     width: 1,
     height: 40,
-    backgroundColor: colors.border,
+  },
+  miniStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+  },
+  miniStat: {
+    alignItems: 'center',
+  },
+  miniIcon: {
+    fontSize: 18,
+    marginBottom: 4,
+  },
+  miniValue: {
+    fontFamily: fontFamilies.bodySemiBold,
+    fontSize: 18,
+  },
+  miniLabel: {
+    fontSize: 11,
+    marginTop: 2,
   },
   sectionTitle: {
-    ...typography.h3,
-    color: colors.text,
+    fontFamily: fontFamilies.bodySemiBold,
+    fontSize: 17,
     marginBottom: 12,
     marginTop: 8,
   },
@@ -220,13 +290,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
-  },
-  iconUnlocked: {
-    backgroundColor: colors.primary + '20',
   },
   icon: {
     fontSize: 24,
@@ -235,17 +301,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   achievementTitle: {
-    ...typography.body,
-    fontFamily: fontFamilies.semiBold,
-    color: colors.text,
+    fontFamily: fontFamilies.bodySemiBold,
+    fontSize: 15,
   },
   achievementDesc: {
-    ...typography.caption,
-    color: colors.textSecondary,
+    fontSize: 13,
     marginTop: 2,
-  },
-  lockedText: {
-    color: colors.textMuted,
   },
   progressContainer: {
     flexDirection: 'row',
@@ -255,25 +316,21 @@ const styles = StyleSheet.create({
   progressBar: {
     flex: 1,
     height: 6,
-    backgroundColor: colors.surface,
     borderRadius: 3,
     marginRight: 8,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: colors.primary,
     borderRadius: 3,
   },
   progressText: {
-    ...typography.caption,
-    color: colors.textMuted,
+    fontSize: 12,
     minWidth: 50,
     textAlign: 'right',
   },
   checkmark: {
     fontSize: 20,
-    color: colors.success,
     marginLeft: 8,
   },
   bottomPadding: {
