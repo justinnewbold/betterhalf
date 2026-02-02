@@ -8,12 +8,15 @@ import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { useAuthStore } from '../../../stores/authStore';
+import { useThemeStore } from '../../../stores/themeStore';
 import { getSupabase, TABLES } from '../../../lib/supabase';
-import { colors } from '../../../constants/colors';
+import { colors, getThemeColors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
 
 export default function EditProfile() {
   const { user, updateProfile } = useAuthStore();
+  const { isDark } = useThemeStore();
+  const themeColors = getThemeColors(isDark);
   
   const [displayName, setDisplayName] = useState(user?.display_name || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -28,6 +31,31 @@ export default function EditProfile() {
   
   // Web file input ref
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const dynamicStyles = {
+    container: {
+      backgroundColor: themeColors.background,
+    },
+    closeButton: {
+      color: themeColors.textMuted,
+    },
+    headerTitle: {
+      color: themeColors.textPrimary,
+    },
+    avatarText: {
+      color: themeColors.textPrimary,
+    },
+    cameraIcon: {
+      backgroundColor: themeColors.purpleLight,
+      borderColor: themeColors.background,
+    },
+    changePhotoText: {
+      color: themeColors.purpleLight,
+    },
+    sectionTitle: {
+      color: themeColors.textPrimary,
+    },
+  };
 
   const handleSaveProfile = async () => {
     setError(null);
@@ -249,7 +277,7 @@ export default function EditProfile() {
   const displayAvatarUri = localAvatarUri || user?.avatar_url;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
       {/* Hidden file input for web */}
       {Platform.OS === 'web' && (
         <input
@@ -264,9 +292,9 @@ export default function EditProfile() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleClose}>
-          <Text style={styles.closeButton}>✕</Text>
+          <Text style={[styles.closeButton, dynamicStyles.closeButton]}>✕</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Profile</Text>
+        <Text style={[styles.headerTitle, dynamicStyles.headerTitle]}>Edit Profile</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -278,16 +306,16 @@ export default function EditProfile() {
               {displayAvatarUri ? (
                 <Image source={{ uri: displayAvatarUri }} style={styles.avatar} />
               ) : (
-                <LinearGradient colors={[colors.coral, colors.coralLight]} style={styles.avatar}>
-                  <Text style={styles.avatarText}>{userInitial}</Text>
+                <LinearGradient colors={[themeColors.coral, themeColors.coralLight]} style={styles.avatar}>
+                  <Text style={[styles.avatarText, dynamicStyles.avatarText]}>{userInitial}</Text>
                 </LinearGradient>
               )}
               {isUploadingPhoto && (
                 <View style={styles.uploadingOverlay}>
-                  <ActivityIndicator color={colors.textPrimary} />
+                  <ActivityIndicator color={themeColors.textPrimary} />
                 </View>
               )}
-              <View style={styles.cameraIcon}>
+              <View style={[styles.cameraIcon, dynamicStyles.cameraIcon]}>
                 <Text style={styles.cameraIconText}>📷</Text>
               </View>
             </View>
@@ -297,7 +325,7 @@ export default function EditProfile() {
             onPress={handlePickImage}
             disabled={isUploadingPhoto}
           >
-            <Text style={styles.changePhotoText}>
+            <Text style={[styles.changePhotoText, dynamicStyles.changePhotoText]}>
               {isUploadingPhoto ? 'Uploading...' : 'Change Photo'}
             </Text>
           </TouchableOpacity>
@@ -317,7 +345,7 @@ export default function EditProfile() {
 
         {/* Profile Info */}
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Profile Information</Text>
+          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>Profile Information</Text>
           
           <Input
             label="Display Name"
@@ -350,7 +378,7 @@ export default function EditProfile() {
 
         {/* Change Password */}
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Change Password</Text>
+          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>Change Password</Text>
 
           <Input
             label="New Password"
@@ -388,7 +416,6 @@ export default function EditProfile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.darkBg,
   },
   header: {
     flexDirection: 'row',
@@ -399,13 +426,11 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     fontSize: 20,
-    color: colors.textMuted,
     padding: 4,
   },
   headerTitle: {
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 17,
-    color: colors.textPrimary,
   },
   scroll: {
     flex: 1,
@@ -431,7 +456,6 @@ const styles = StyleSheet.create({
   avatarText: {
     fontFamily: fontFamilies.bodyBold,
     fontSize: 40,
-    color: colors.textPrimary,
   },
   uploadingOverlay: {
     position: 'absolute',
@@ -451,11 +475,9 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: colors.darkBg,
   },
   cameraIconText: {
     fontSize: 14,
@@ -465,7 +487,6 @@ const styles = StyleSheet.create({
   },
   changePhotoText: {
     ...typography.body,
-    color: colors.purpleLight,
   },
   errorBox: {
     backgroundColor: 'rgba(255,107,107,0.15)',
@@ -495,7 +516,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 17,
-    color: colors.textPrimary,
     marginBottom: 16,
   },
   spacer: {
