@@ -17,7 +17,8 @@ import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { useFriendsStore } from '../../../stores/friendsStore';
 import { useAuthStore } from '../../../stores/authStore';
-import { colors } from '../../../constants/colors';
+import { useThemeStore } from '../../../stores/themeStore';
+import { colors, getThemeColors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
 import { RELATIONSHIP_TYPES, QUESTION_CATEGORIES, FRIEND_SAFE_CATEGORIES, QuestionCategory, RelationshipType } from '../../../lib/supabase';
 
@@ -25,6 +26,8 @@ export default function FriendSettingsScreen() {
   const { id: friendshipId } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuthStore();
   const { getFriendById, updateFriendSettings, removeFriend, blockFriend, fetchFriends } = useFriendsStore();
+  const { isDark } = useThemeStore();
+  const themeColors = getThemeColors(isDark);
   
   const friend = getFriendById(friendshipId || '');
   
@@ -34,6 +37,82 @@ export default function FriendSettingsScreen() {
   const [dailyLimit, setDailyLimit] = useState(10);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Dynamic styles based on theme
+  const dynamicStyles = {
+    container: {
+      backgroundColor: themeColors.background,
+    },
+    loadingText: {
+      color: themeColors.textMuted,
+    },
+    header: {
+      borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+    },
+    backText: {
+      color: themeColors.greenAccent,
+    },
+    headerTitle: {
+      color: themeColors.textPrimary,
+    },
+    avatarInitial: {
+      color: themeColors.textPrimary,
+    },
+    relationshipIconBadge: {
+      backgroundColor: themeColors.card,
+      borderColor: themeColors.background,
+    },
+    profileName: {
+      color: themeColors.textPrimary,
+    },
+    profileEmail: {
+      color: themeColors.textMuted,
+    },
+    friendSince: {
+      color: themeColors.textMuted,
+    },
+    cardLabel: {
+      color: themeColors.textMuted,
+    },
+    cardDescription: {
+      color: themeColors.textSecondary,
+    },
+    textInput: {
+      backgroundColor: themeColors.background,
+      color: themeColors.textPrimary,
+      borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+    },
+    relationshipOption: {
+      backgroundColor: themeColors.background,
+      borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+    },
+    relationshipOptionLabel: {
+      color: themeColors.textSecondary,
+    },
+    categoryOption: {
+      backgroundColor: themeColors.background,
+      borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+    },
+    categoryLabel: {
+      color: themeColors.textSecondary,
+    },
+    categoryLabelSelected: {
+      color: themeColors.textPrimary,
+    },
+    categoryCheck: {
+      color: themeColors.greenAccent,
+    },
+    limitOption: {
+      backgroundColor: themeColors.background,
+      borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+    },
+    limitText: {
+      color: themeColors.textSecondary,
+    },
+    limitTextSelected: {
+      color: themeColors.greenAccent,
+    },
+  };
 
   // Determine if current user is initiator
   // Note: friend_user in FriendWithUser always represents the "other person" 
@@ -69,10 +148,10 @@ export default function FriendSettingsScreen() {
 
   if (!friend) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.coralPrimary} />
-          <Text style={styles.loadingText}>Loading...</Text>
+          <ActivityIndicator size="large" color={themeColors.coral} />
+          <Text style={[styles.loadingText, dynamicStyles.loadingText]}>Loading...</Text>
         </View>
       </SafeAreaView>
     );
@@ -184,13 +263,13 @@ export default function FriendSettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backText}>← Back</Text>
+          <Text style={[styles.backText, dynamicStyles.backText]}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Friend Settings</Text>
+        <Text style={[styles.headerTitle, dynamicStyles.headerTitle]}>Friend Settings</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -199,28 +278,28 @@ export default function FriendSettingsScreen() {
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
             {friendAvatar ? (
-              <Image source={{ uri: friendAvatar }} style={styles.avatar} />
+              <Image source={{ uri: friendAvatar }} style={[styles.avatar, { borderColor: themeColors.greenAccent }]} />
             ) : (
               <LinearGradient
-                colors={[colors.greenAccent, colors.purpleLight]}
+                colors={[themeColors.greenAccent, themeColors.purpleLight]}
                 style={styles.avatarPlaceholder}
               >
-                <Text style={styles.avatarInitial}>
+                <Text style={[styles.avatarInitial, dynamicStyles.avatarInitial]}>
                   {friendName.charAt(0).toUpperCase()}
                 </Text>
               </LinearGradient>
             )}
-            <View style={styles.relationshipIconBadge}>
+            <View style={[styles.relationshipIconBadge, dynamicStyles.relationshipIconBadge]}>
               <Text style={styles.relationshipIconText}>
                 {getRelationshipIcon(relationshipType)}
               </Text>
             </View>
           </View>
-          <Text style={styles.profileName}>{friendName}</Text>
+          <Text style={[styles.profileName, dynamicStyles.profileName]}>{friendName}</Text>
           {friendEmail && (
-            <Text style={styles.profileEmail}>{friendEmail}</Text>
+            <Text style={[styles.profileEmail, dynamicStyles.profileEmail]}>{friendEmail}</Text>
           )}
-          <Text style={styles.friendSince}>
+          <Text style={[styles.friendSince, dynamicStyles.friendSince]}>
             Friends since {new Date(friend.accepted_at || friend.created_at).toLocaleDateString()}
           </Text>
           
@@ -234,53 +313,61 @@ export default function FriendSettingsScreen() {
 
         {/* Nickname */}
         <Card style={styles.card}>
-          <Text style={styles.cardLabel}>NICKNAME</Text>
-          <Text style={styles.cardDescription}>
+          <Text style={[styles.cardLabel, dynamicStyles.cardLabel]}>NICKNAME</Text>
+          <Text style={[styles.cardDescription, dynamicStyles.cardDescription]}>
             Give them a custom nickname (only visible to you)
           </Text>
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, dynamicStyles.textInput]}
             value={nickname}
             onChangeText={setNickname}
             placeholder={friendUser?.display_name || 'Enter nickname'}
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={themeColors.textMuted}
             maxLength={30}
           />
         </Card>
 
         {/* Relationship Type */}
         <Card style={styles.card}>
-          <Text style={styles.cardLabel}>RELATIONSHIP</Text>
-          <Text style={styles.cardDescription}>
+          <Text style={[styles.cardLabel, dynamicStyles.cardLabel]}>RELATIONSHIP</Text>
+          <Text style={[styles.cardDescription, dynamicStyles.cardDescription]}>
             How do you know each other?
           </Text>
           <View style={styles.relationshipGrid}>
-            {RELATIONSHIP_TYPES.map((type) => (
-              <TouchableOpacity
-                key={type.id}
-                style={[
-                  styles.relationshipOption,
-                  relationshipType === type.id && styles.relationshipOptionSelected
-                ]}
-                onPress={() => setRelationshipType(type.id)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.relationshipOptionIcon}>{type.icon}</Text>
-                <Text style={[
-                  styles.relationshipOptionLabel,
-                  relationshipType === type.id && styles.relationshipOptionLabelSelected
-                ]}>
-                  {type.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {RELATIONSHIP_TYPES.map((type) => {
+              const isSelected = relationshipType === type.id;
+              return (
+                <TouchableOpacity
+                  key={type.id}
+                  style={[
+                    styles.relationshipOption,
+                    dynamicStyles.relationshipOption,
+                    isSelected && {
+                      backgroundColor: isDark ? 'rgba(74, 222, 128, 0.15)' : 'rgba(74, 222, 128, 0.1)',
+                      borderColor: themeColors.greenAccent,
+                    }
+                  ]}
+                  onPress={() => setRelationshipType(type.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.relationshipOptionIcon}>{type.icon}</Text>
+                  <Text style={[
+                    styles.relationshipOptionLabel,
+                    dynamicStyles.relationshipOptionLabel,
+                    isSelected && { color: themeColors.greenAccent }
+                  ]}>
+                    {type.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </Card>
 
         {/* Question Categories */}
         <Card style={styles.card}>
-          <Text style={styles.cardLabel}>QUESTION CATEGORIES</Text>
-          <Text style={styles.cardDescription}>
+          <Text style={[styles.cardLabel, dynamicStyles.cardLabel]}>QUESTION CATEGORIES</Text>
+          <Text style={[styles.cardDescription, dynamicStyles.cardDescription]}>
             Choose which types of questions appear in your games
           </Text>
           <View style={styles.categoriesGrid}>
@@ -291,7 +378,11 @@ export default function FriendSettingsScreen() {
                   key={category.id}
                   style={[
                     styles.categoryOption,
-                    isSelected && styles.categoryOptionSelected
+                    dynamicStyles.categoryOption,
+                    isSelected && {
+                      backgroundColor: isDark ? 'rgba(74, 222, 128, 0.15)' : 'rgba(74, 222, 128, 0.1)',
+                      borderColor: themeColors.greenAccent,
+                    }
                   ]}
                   onPress={() => handleCategoryToggle(category.id)}
                   activeOpacity={0.7}
@@ -299,12 +390,12 @@ export default function FriendSettingsScreen() {
                   <Text style={styles.categoryIcon}>{category.icon}</Text>
                   <Text style={[
                     styles.categoryLabel,
-                    isSelected && styles.categoryLabelSelected
+                    isSelected ? dynamicStyles.categoryLabelSelected : dynamicStyles.categoryLabel
                   ]}>
                     {category.label}
                   </Text>
                   {isSelected && (
-                    <Text style={styles.categoryCheck}>✓</Text>
+                    <Text style={[styles.categoryCheck, dynamicStyles.categoryCheck]}>✓</Text>
                   )}
                 </TouchableOpacity>
               );
@@ -314,29 +405,36 @@ export default function FriendSettingsScreen() {
 
         {/* Daily Limit */}
         <Card style={styles.card}>
-          <Text style={styles.cardLabel}>DAILY QUESTION LIMIT</Text>
-          <Text style={styles.cardDescription}>
+          <Text style={[styles.cardLabel, dynamicStyles.cardLabel]}>DAILY QUESTION LIMIT</Text>
+          <Text style={[styles.cardDescription, dynamicStyles.cardDescription]}>
             How many questions can you play per day?
           </Text>
           <View style={styles.limitSelector}>
-            {[5, 10, 15, 20].map((limit) => (
-              <TouchableOpacity
-                key={limit}
-                style={[
-                  styles.limitOption,
-                  dailyLimit === limit && styles.limitOptionSelected
-                ]}
-                onPress={() => setDailyLimit(limit)}
-                activeOpacity={0.7}
-              >
-                <Text style={[
-                  styles.limitText,
-                  dailyLimit === limit && styles.limitTextSelected
-                ]}>
-                  {limit}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {[5, 10, 15, 20].map((limit) => {
+              const isSelected = dailyLimit === limit;
+              return (
+                <TouchableOpacity
+                  key={limit}
+                  style={[
+                    styles.limitOption,
+                    dynamicStyles.limitOption,
+                    isSelected && {
+                      backgroundColor: isDark ? 'rgba(74, 222, 128, 0.15)' : 'rgba(74, 222, 128, 0.1)',
+                      borderColor: themeColors.greenAccent,
+                    }
+                  ]}
+                  onPress={() => setDailyLimit(limit)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.limitText,
+                    isSelected ? dynamicStyles.limitTextSelected : dynamicStyles.limitText
+                  ]}>
+                    {limit}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </Card>
 
@@ -377,7 +475,6 @@ export default function FriendSettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.darkBg,
   },
   loadingContainer: {
     flex: 1,
@@ -386,7 +483,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     ...typography.body,
-    color: colors.textMuted,
     marginTop: 12,
   },
   header: {
@@ -396,19 +492,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   backButton: {
     padding: 4,
   },
   backText: {
     ...typography.body,
-    color: colors.greenAccent,
   },
   headerTitle: {
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 17,
-    color: colors.textPrimary,
   },
   headerSpacer: {
     width: 60,
@@ -432,7 +525,6 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     borderWidth: 3,
-    borderColor: colors.greenAccent,
   },
   avatarPlaceholder: {
     width: 100,
@@ -444,20 +536,17 @@ const styles = StyleSheet.create({
   avatarInitial: {
     fontFamily: fontFamilies.bodyBold,
     fontSize: 40,
-    color: colors.textPrimary,
   },
   relationshipIconBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: colors.cardDark,
     borderRadius: 16,
     width: 32,
     height: 32,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.darkBg,
   },
   relationshipIconText: {
     fontSize: 16,
@@ -465,16 +554,13 @@ const styles = StyleSheet.create({
   profileName: {
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 24,
-    color: colors.textPrimary,
   },
   profileEmail: {
     ...typography.bodySmall,
-    color: colors.textMuted,
     marginTop: 2,
   },
   friendSince: {
     ...typography.caption,
-    color: colors.textMuted,
     marginTop: 8,
   },
   playButton: {
@@ -486,22 +572,17 @@ const styles = StyleSheet.create({
   },
   cardLabel: {
     ...typography.captionBold,
-    color: colors.textMuted,
     marginBottom: 4,
   },
   cardDescription: {
     ...typography.bodySmall,
-    color: colors.textSecondary,
     marginBottom: 12,
   },
   textInput: {
-    backgroundColor: colors.darkBg,
     borderRadius: 12,
     padding: 14,
-    color: colors.textPrimary,
     ...typography.body,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
   relationshipGrid: {
     flexDirection: 'row',
@@ -514,13 +595,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 20,
-    backgroundColor: colors.darkBg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  relationshipOptionSelected: {
-    backgroundColor: 'rgba(74, 222, 128, 0.15)',
-    borderColor: colors.greenAccent,
   },
   relationshipOptionIcon: {
     fontSize: 16,
@@ -528,10 +603,6 @@ const styles = StyleSheet.create({
   },
   relationshipOptionLabel: {
     ...typography.label,
-    color: colors.textSecondary,
-  },
-  relationshipOptionLabelSelected: {
-    color: colors.greenAccent,
   },
   categoriesGrid: {
     gap: 8,
@@ -541,13 +612,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 14,
     borderRadius: 12,
-    backgroundColor: colors.darkBg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  categoryOptionSelected: {
-    backgroundColor: 'rgba(74, 222, 128, 0.15)',
-    borderColor: colors.greenAccent,
   },
   categoryIcon: {
     fontSize: 20,
@@ -556,14 +621,9 @@ const styles = StyleSheet.create({
   categoryLabel: {
     flex: 1,
     ...typography.body,
-    color: colors.textSecondary,
-  },
-  categoryLabelSelected: {
-    color: colors.textPrimary,
   },
   categoryCheck: {
     ...typography.bodyBold,
-    color: colors.greenAccent,
     marginLeft: 8,
   },
   limitSelector: {
@@ -574,22 +634,12 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: colors.darkBg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
-  },
-  limitOptionSelected: {
-    backgroundColor: 'rgba(74, 222, 128, 0.15)',
-    borderColor: colors.greenAccent,
   },
   limitText: {
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 18,
-    color: colors.textSecondary,
-  },
-  limitTextSelected: {
-    color: colors.greenAccent,
   },
   saveButton: {
     marginBottom: 16,
