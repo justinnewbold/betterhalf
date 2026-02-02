@@ -9,9 +9,10 @@ import { SyncScoreRing } from '../../../components/game/SyncScoreRing';
 import { useAuthStore } from '../../../stores/authStore';
 import { useCoupleStore } from '../../../stores/coupleStore';
 import { usePresenceStore } from '../../../stores/presenceStore';
+import { useThemeStore } from '../../../stores/themeStore';
 import { PartnerAnsweringIndicator } from '../../../components/ui/PartnerStatus';
 import { getSupabase, TABLES, QuestionCategory } from '../../../lib/supabase';
-import { colors } from '../../../constants/colors';
+import { colors, getThemeColors } from '../../../constants/colors';
 import { Confetti, CelebrationBurst } from '../../../components/ui/Confetti';
 import { typography, fontFamilies } from '../../../constants/typography';
 
@@ -40,6 +41,8 @@ export default function DailySync() {
   const { user } = useAuthStore();
   const { couple, partnerProfile, streak: streakData, fetchCouple } = useCoupleStore();
   const { updateMyState, partnerState, partnerCurrentScreen } = usePresenceStore();
+  const { isDark } = useThemeStore();
+  const themeColors = getThemeColors(isDark);
   
   const [phase, setPhase] = useState<GamePhase>('loading');
   const [question, setQuestion] = useState<Question | null>(null);
@@ -364,12 +367,133 @@ export default function DailySync() {
   // Calculate stats for results
   const currentStreak = streakData?.current_streak || 0;
 
+  // Dynamic styles based on theme
+  const dynamicStyles = {
+    container: {
+      flex: 1,
+      backgroundColor: themeColors.background,
+    },
+    closeButton: {
+      fontSize: 20,
+      color: themeColors.textMuted,
+      padding: 4,
+    },
+    headerTitle: {
+      fontFamily: fontFamilies.bodySemiBold,
+      fontSize: 17,
+      color: themeColors.textPrimary,
+    },
+    progressText: {
+      ...typography.caption,
+      color: themeColors.textMuted,
+    },
+    progressBar: {
+      height: 4,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+      borderRadius: 2,
+      marginBottom: 24,
+      overflow: 'hidden' as const,
+    },
+    loadingText: {
+      ...typography.body,
+      color: themeColors.textMuted,
+      marginTop: 16,
+    },
+    errorText: {
+      ...typography.body,
+      color: themeColors.textMuted,
+      marginBottom: 24,
+      textAlign: 'center' as const,
+    },
+    waitingIcon: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      backgroundColor: isDark ? 'rgba(168,85,247,0.15)' : 'rgba(147,51,234,0.12)',
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      marginBottom: 24,
+    },
+    waitingTitle: {
+      fontFamily: fontFamilies.display,
+      fontSize: 24,
+      color: themeColors.textPrimary,
+      marginBottom: 8,
+    },
+    waitingSubtitle: {
+      ...typography.body,
+      color: themeColors.textMuted,
+      marginBottom: 40,
+    },
+    yourAnswerLabel: {
+      ...typography.caption,
+      color: themeColors.textMuted,
+      marginBottom: 8,
+    },
+    yourAnswerText: {
+      fontFamily: fontFamilies.bodySemiBold,
+      fontSize: 18,
+      color: themeColors.textPrimary,
+    },
+    matchText: {
+      fontFamily: fontFamilies.display,
+      fontSize: 28,
+    },
+    revealQuestion: {
+      ...typography.body,
+      color: themeColors.textMuted,
+      marginBottom: 16,
+      textAlign: 'center' as const,
+    },
+    answerBox: {
+      flex: 1,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+      borderRadius: 12,
+      padding: 14,
+      alignItems: 'center' as const,
+      borderWidth: 2,
+      borderColor: themeColors.coral,
+    },
+    answerName: {
+      ...typography.caption,
+      color: themeColors.textMuted,
+      marginBottom: 6,
+    },
+    answerValue: {
+      fontFamily: fontFamilies.bodySemiBold,
+      fontSize: 14,
+      color: themeColors.textPrimary,
+      textAlign: 'center' as const,
+    },
+    resultsLabel: {
+      ...typography.caption,
+      color: themeColors.textMuted,
+      marginBottom: 8,
+    },
+    resultsTitle: {
+      fontFamily: fontFamilies.display,
+      fontSize: 28,
+      color: themeColors.textPrimary,
+      marginBottom: 24,
+    },
+    resultLabel: {
+      ...typography.caption,
+      color: themeColors.textMuted,
+      marginBottom: 6,
+    },
+    resultValue: {
+      fontFamily: fontFamilies.bodyBold,
+      fontSize: 22,
+      color: themeColors.textPrimary,
+    },
+  };
+
   if (phase === 'loading') {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={dynamicStyles.container}>
         <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color={colors.purple} />
-          <Text style={styles.loadingText}>Loading today's question...</Text>
+          <ActivityIndicator size="large" color={themeColors.purple} />
+          <Text style={dynamicStyles.loadingText}>Loading today's question...</Text>
         </View>
       </SafeAreaView>
     );
@@ -377,17 +501,17 @@ export default function DailySync() {
 
   if (phase === 'error') {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={dynamicStyles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose}>
-            <Text style={styles.closeButton}>✕</Text>
+            <Text style={dynamicStyles.closeButton}>✕</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Daily Sync</Text>
+          <Text style={dynamicStyles.headerTitle}>Daily Sync</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.centerContent}>
           <Text style={styles.errorEmoji}>😕</Text>
-          <Text style={styles.errorText}>{error || 'Something went wrong'}</Text>
+          <Text style={dynamicStyles.errorText}>{error || 'Something went wrong'}</Text>
           <Button title="Try Again" onPress={loadTodaySession} />
         </View>
       </SafeAreaView>
@@ -396,33 +520,33 @@ export default function DailySync() {
 
   if (phase === 'already_played') {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={dynamicStyles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose}>
-            <Text style={styles.closeButton}>✕</Text>
+            <Text style={dynamicStyles.closeButton}>✕</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Daily Sync</Text>
+          <Text style={dynamicStyles.headerTitle}>Daily Sync</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.centerContent}>
-          <Text style={styles.resultsLabel}>TODAY'S SYNC COMPLETE</Text>
-          <Text style={styles.resultsTitle}>
+          <Text style={dynamicStyles.resultsLabel}>TODAY'S SYNC COMPLETE</Text>
+          <Text style={dynamicStyles.resultsTitle}>
             {isMatch ? 'You matched! 🎉' : 'Come back tomorrow! 💕'}
           </Text>
           
           {question && (
             <Card style={styles.revealCard}>
-              <Text style={styles.revealQuestion}>{question.question}</Text>
+              <Text style={dynamicStyles.revealQuestion}>{question.question}</Text>
               <View style={styles.revealAnswers}>
-                <View style={[styles.answerBox, isMatch && styles.answerMatch]}>
-                  <Text style={styles.answerName}>YOU</Text>
-                  <Text style={styles.answerValue}>
+                <View style={[dynamicStyles.answerBox, isMatch && { borderColor: themeColors.success }]}>
+                  <Text style={dynamicStyles.answerName}>YOU</Text>
+                  <Text style={dynamicStyles.answerValue}>
                     {question.options[selectedOption ?? 0]}
                   </Text>
                 </View>
-                <View style={[styles.answerBox, isMatch && styles.answerMatch]}>
-                  <Text style={styles.answerName}>{connectionName.toUpperCase()}</Text>
-                  <Text style={styles.answerValue}>
+                <View style={[dynamicStyles.answerBox, isMatch && { borderColor: themeColors.success }]}>
+                  <Text style={dynamicStyles.answerName}>{connectionName.toUpperCase()}</Text>
+                  <Text style={dynamicStyles.answerValue}>
                     {question.options[partnerOption ?? 0]}
                   </Text>
                 </View>
@@ -439,13 +563,13 @@ export default function DailySync() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={dynamicStyles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleClose}>
-          <Text style={styles.closeButton}>✕</Text>
+          <Text style={dynamicStyles.closeButton}>✕</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Daily Sync</Text>
+        <Text style={dynamicStyles.headerTitle}>Daily Sync</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -453,10 +577,10 @@ export default function DailySync() {
       {phase === 'question' && question && (
         <View style={styles.content}>
           <View style={styles.progressInfo}>
-            <Text style={styles.progressText}>Today's Question</Text>
+            <Text style={dynamicStyles.progressText}>Today's Question</Text>
           </View>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '100%' }]} />
+          <View style={dynamicStyles.progressBar}>
+            <View style={[styles.progressFill, { backgroundColor: themeColors.purpleLight }]} />
           </View>
 
           <QuestionCard
@@ -479,23 +603,23 @@ export default function DailySync() {
       {/* Waiting Phase */}
       {phase === 'waiting' && question && (
         <View style={styles.centerContent}>
-          <View style={styles.waitingIcon}>
+          <View style={dynamicStyles.waitingIcon}>
             <Text style={styles.waitingEmoji}>
               {partnerState === 'playing' && partnerCurrentScreen === 'daily' ? '💭' : '⏳'}
             </Text>
           </View>
-          <Text style={styles.waitingTitle}>Waiting for {connectionName}</Text>
+          <Text style={dynamicStyles.waitingTitle}>Waiting for {connectionName}</Text>
           {partnerState === 'playing' && partnerCurrentScreen === 'daily' ? (
             <PartnerAnsweringIndicator partnerName={connectionName} />
           ) : (
-            <Text style={styles.waitingSubtitle}>
+            <Text style={dynamicStyles.waitingSubtitle}>
               {partnerState === 'online' ? "They're online but haven't started yet" : "We'll notify you when they answer"}
             </Text>
           )}
           
           <Card style={styles.yourAnswerCard}>
-            <Text style={styles.yourAnswerLabel}>YOUR ANSWER</Text>
-            <Text style={styles.yourAnswerText}>
+            <Text style={dynamicStyles.yourAnswerLabel}>YOUR ANSWER</Text>
+            <Text style={dynamicStyles.yourAnswerText}>
               {question.options[selectedOption ?? 0]}
             </Text>
           </Card>
@@ -507,31 +631,31 @@ export default function DailySync() {
         <View style={styles.centerContent}>
           <View style={styles.matchIndicator}>
             <Text style={styles.matchEmoji}>{isMatch ? '✨' : '😅'}</Text>
-            <Text style={[styles.matchText, isMatch ? styles.matchSuccess : styles.matchMiss]}>
+            <Text style={[dynamicStyles.matchText, { color: isMatch ? themeColors.success : themeColors.coral }]}>
               {isMatch ? "It's a Match!" : 'Not Quite!'}
             </Text>
           </View>
 
           <Card style={styles.revealCard}>
-            <Text style={styles.revealQuestion}>{question.question}</Text>
+            <Text style={dynamicStyles.revealQuestion}>{question.question}</Text>
             
             <View style={styles.revealAnswers}>
-              <View style={[styles.answerBox, isMatch && styles.answerMatch]}>
-                <Text style={styles.answerName}>YOU</Text>
-                <Text style={styles.answerValue}>
+              <View style={[dynamicStyles.answerBox, isMatch && { borderColor: themeColors.success }]}>
+                <Text style={dynamicStyles.answerName}>YOU</Text>
+                <Text style={dynamicStyles.answerValue}>
                   {question.options[selectedOption ?? 0]}
                 </Text>
               </View>
-              <View style={[styles.answerBox, isMatch && styles.answerMatch]}>
-                <Text style={styles.answerName}>{connectionName.toUpperCase()}</Text>
-                <Text style={styles.answerValue}>
+              <View style={[dynamicStyles.answerBox, isMatch && { borderColor: themeColors.success }]}>
+                <Text style={dynamicStyles.answerName}>{connectionName.toUpperCase()}</Text>
+                <Text style={dynamicStyles.answerValue}>
                   {question.options[partnerOption ?? 0]}
                 </Text>
               </View>
             </View>
           </Card>
 
-          <Text style={[styles.pointsText, isMatch ? styles.pointsSuccess : styles.pointsMiss]}>
+          <Text style={[styles.pointsText, { color: isMatch ? themeColors.success : themeColors.textMuted }]}>
             {isMatch ? '+10 points' : 'Time for a conversation? 😏'}
           </Text>
 
@@ -544,24 +668,24 @@ export default function DailySync() {
       {/* Results Phase */}
       {phase === 'results' && (
         <View style={styles.centerContent}>
-          <Text style={styles.resultsLabel}>DAILY SYNC COMPLETE</Text>
-          <Text style={styles.resultsTitle}>
+          <Text style={dynamicStyles.resultsLabel}>DAILY SYNC COMPLETE</Text>
+          <Text style={dynamicStyles.resultsTitle}>
             {isMatch ? 'Nice work! 🎉' : 'Better luck tomorrow! 💕'}
           </Text>
 
           <Card style={styles.resultsCard}>
             <View style={styles.resultsRow}>
               <View style={styles.resultItem}>
-                <Text style={styles.resultLabel}>STREAK</Text>
-                <Text style={styles.resultValue}>🔥 {currentStreak}</Text>
+                <Text style={dynamicStyles.resultLabel}>STREAK</Text>
+                <Text style={dynamicStyles.resultValue}>🔥 {currentStreak}</Text>
               </View>
               <View style={styles.resultItem}>
-                <Text style={styles.resultLabel}>MATCHED</Text>
-                <Text style={styles.resultValue}>{isMatch ? '1/1' : '0/1'}</Text>
+                <Text style={dynamicStyles.resultLabel}>MATCHED</Text>
+                <Text style={dynamicStyles.resultValue}>{isMatch ? '1/1' : '0/1'}</Text>
               </View>
               <View style={styles.resultItem}>
-                <Text style={styles.resultLabel}>POINTS</Text>
-                <Text style={styles.resultValue}>{isMatch ? '+10' : '+0'}</Text>
+                <Text style={dynamicStyles.resultLabel}>POINTS</Text>
+                <Text style={dynamicStyles.resultValue}>{isMatch ? '+10' : '+0'}</Text>
               </View>
             </View>
           </Card>
@@ -585,26 +709,12 @@ export default function DailySync() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.darkBg,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-  },
-  closeButton: {
-    fontSize: 20,
-    color: colors.textMuted,
-    padding: 4,
-  },
-  headerTitle: {
-    fontFamily: fontFamilies.bodySemiBold,
-    fontSize: 17,
-    color: colors.textPrimary,
   },
   content: {
     flex: 1,
@@ -613,20 +723,9 @@ const styles = StyleSheet.create({
   progressInfo: {
     marginBottom: 8,
   },
-  progressText: {
-    ...typography.caption,
-    color: colors.textMuted,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 2,
-    marginBottom: 24,
-    overflow: 'hidden',
-  },
   progressFill: {
     height: '100%',
-    backgroundColor: colors.purpleLight,
+    width: '100%',
     borderRadius: 2,
   },
   footer: {
@@ -639,57 +738,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  loadingText: {
-    ...typography.body,
-    color: colors.textMuted,
-    marginTop: 16,
-  },
   errorEmoji: {
     fontSize: 56,
     marginBottom: 16,
   },
-  errorText: {
-    ...typography.body,
-    color: colors.textMuted,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  waitingIcon: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(168,85,247,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
   waitingEmoji: {
     fontSize: 48,
-  },
-  waitingTitle: {
-    fontFamily: fontFamilies.display,
-    fontSize: 24,
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  waitingSubtitle: {
-    ...typography.body,
-    color: colors.textMuted,
-    marginBottom: 40,
   },
   yourAnswerCard: {
     alignItems: 'center',
     paddingVertical: 20,
-  },
-  yourAnswerLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginBottom: 8,
-  },
-  yourAnswerText: {
-    fontFamily: fontFamilies.bodySemiBold,
-    fontSize: 18,
-    color: colors.textPrimary,
   },
   matchIndicator: {
     alignItems: 'center',
@@ -699,75 +757,19 @@ const styles = StyleSheet.create({
     fontSize: 56,
     marginBottom: 12,
   },
-  matchText: {
-    fontFamily: fontFamilies.display,
-    fontSize: 28,
-  },
-  matchSuccess: {
-    color: colors.success,
-  },
-  matchMiss: {
-    color: colors.coral,
-  },
   revealCard: {
     width: '100%',
     alignItems: 'center',
     marginBottom: 16,
-  },
-  revealQuestion: {
-    ...typography.body,
-    color: colors.textMuted,
-    marginBottom: 16,
-    textAlign: 'center',
   },
   revealAnswers: {
     flexDirection: 'row',
     gap: 12,
     width: '100%',
   },
-  answerBox: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
-    padding: 14,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: colors.coral,
-  },
-  answerMatch: {
-    borderColor: colors.success,
-  },
-  answerName: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginBottom: 6,
-  },
-  answerValue: {
-    fontFamily: fontFamilies.bodySemiBold,
-    fontSize: 14,
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
   pointsText: {
     ...typography.body,
     marginBottom: 40,
-  },
-  pointsSuccess: {
-    color: colors.success,
-  },
-  pointsMiss: {
-    color: colors.textMuted,
-  },
-  resultsLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginBottom: 8,
-  },
-  resultsTitle: {
-    fontFamily: fontFamilies.display,
-    fontSize: 28,
-    color: colors.textPrimary,
-    marginBottom: 24,
   },
   resultsCard: {
     width: '100%',
@@ -780,15 +782,5 @@ const styles = StyleSheet.create({
   },
   resultItem: {
     alignItems: 'center',
-  },
-  resultLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginBottom: 6,
-  },
-  resultValue: {
-    fontFamily: fontFamilies.bodyBold,
-    fontSize: 22,
-    color: colors.textPrimary,
   },
 });
