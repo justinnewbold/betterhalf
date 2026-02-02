@@ -3,8 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useCoupleStore } from '../../../stores/coupleStore';
+import { useThemeStore } from '../../../stores/themeStore';
 import { QUESTION_CATEGORIES, QuestionCategory } from '../../../lib/supabase';
-import { colors } from '../../../constants/colors';
+import { colors, getThemeColors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
@@ -12,8 +13,54 @@ import { Button } from '../../../components/ui/Button';
 export default function CategoriesScreen() {
   const router = useRouter();
   const { couple, updateCategoryPreferences } = useCoupleStore();
+  const { isDark } = useThemeStore();
+  const themeColors = getThemeColors(isDark);
   const [selectedCategories, setSelectedCategories] = useState<QuestionCategory[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+
+  const dynamicStyles = {
+    container: {
+      backgroundColor: themeColors.background,
+    },
+    closeButton: {
+      color: themeColors.textMuted,
+    },
+    headerTitle: {
+      color: themeColors.textPrimary,
+    },
+    description: {
+      color: themeColors.textSecondary,
+    },
+    checkbox: {
+      backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+      borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
+    },
+    checkmark: {
+      color: themeColors.textPrimary,
+    },
+    categoryLabel: {
+      color: themeColors.textPrimary,
+    },
+    categoryDescription: {
+      color: themeColors.textMuted,
+    },
+    manageLink: {
+      borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+    },
+    manageLinkText: {
+      color: themeColors.purpleLight,
+    },
+    infoTitle: {
+      color: themeColors.textPrimary,
+    },
+    infoText: {
+      color: themeColors.textSecondary,
+    },
+    footer: {
+      backgroundColor: themeColors.background,
+      borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+    },
+  };
 
   useEffect(() => {
     if (couple?.preferred_categories && couple.preferred_categories.length > 0) {
@@ -67,17 +114,17 @@ export default function CategoriesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={handleClose}>
-          <Text style={styles.closeButton}>✕</Text>
+          <Text style={[styles.closeButton, dynamicStyles.closeButton]}>✕</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Question Categories</Text>
+        <Text style={[styles.headerTitle, dynamicStyles.headerTitle]}>Question Categories</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-        <Text style={styles.description}>
+        <Text style={[styles.description, dynamicStyles.description]}>
           Choose which types of questions you'd like to see in your daily sync. 
           Both you and your partner will answer questions from these categories.
         </Text>
@@ -93,32 +140,34 @@ export default function CategoriesScreen() {
               >
                 <Card style={[
                   styles.categoryCard, 
-                  isSelected && styles.categoryCardSelected
+                  isSelected && { borderColor: themeColors.coral, borderWidth: 2 }
                 ]}>
                   <View style={styles.categoryHeader}>
                     <Text style={styles.categoryIcon}>{category.icon}</Text>
                     <View style={[
                       styles.checkbox,
-                      isSelected && styles.checkboxSelected
+                      dynamicStyles.checkbox,
+                      isSelected && { backgroundColor: themeColors.coral, borderColor: themeColors.coral }
                     ]}>
-                      {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                      {isSelected && <Text style={[styles.checkmark, dynamicStyles.checkmark]}>✓</Text>}
                     </View>
                   </View>
                   <Text style={[
                     styles.categoryLabel, 
-                    isSelected && styles.categoryLabelSelected
+                    dynamicStyles.categoryLabel,
+                    isSelected && { color: themeColors.coral }
                   ]}>
                     {category.label}
                   </Text>
-                  <Text style={styles.categoryDescription}>
+                  <Text style={[styles.categoryDescription, dynamicStyles.categoryDescription]}>
                     {category.description}
                   </Text>
                   {category.id === 'custom' && (
                     <TouchableOpacity 
-                      style={styles.manageLink}
+                      style={[styles.manageLink, dynamicStyles.manageLink]}
                       onPress={() => router.push('/(main)/settings/custom-questions')}
                     >
-                      <Text style={styles.manageLinkText}>
+                      <Text style={[styles.manageLinkText, dynamicStyles.manageLinkText]}>
                         Manage custom questions →
                       </Text>
                     </TouchableOpacity>
@@ -130,14 +179,14 @@ export default function CategoriesScreen() {
         </View>
 
         <Card variant="gradient" style={styles.infoCard}>
-          <Text style={styles.infoTitle}>💡 Good to know</Text>
-          <Text style={styles.infoText}>
+          <Text style={[styles.infoTitle, dynamicStyles.infoTitle]}>💡 Good to know</Text>
+          <Text style={[styles.infoText, dynamicStyles.infoText]}>
             Changes will apply to new questions. Your current daily question won't be affected.
           </Text>
         </Card>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, dynamicStyles.footer]}>
         <Button
           title={isSaving ? 'Saving...' : 'Save Preferences'}
           onPress={handleSave}
@@ -152,7 +201,6 @@ export default function CategoriesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.darkBg,
   },
   header: {
     flexDirection: 'row',
@@ -163,13 +211,11 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     fontSize: 20,
-    color: colors.textMuted,
     padding: 4,
   },
   headerTitle: {
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 17,
-    color: colors.textPrimary,
   },
   scroll: {
     flex: 1,
@@ -180,7 +226,6 @@ const styles = StyleSheet.create({
   },
   description: {
     ...typography.body,
-    color: colors.textSecondary,
     lineHeight: 24,
     marginBottom: 24,
   },
@@ -189,10 +234,6 @@ const styles = StyleSheet.create({
   },
   categoryCard: {
     marginBottom: 0,
-  },
-  categoryCardSelected: {
-    borderColor: colors.coral,
-    borderWidth: 2,
   },
   categoryHeader: {
     flexDirection: 'row',
@@ -207,44 +248,30 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.1)',
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxSelected: {
-    backgroundColor: colors.coral,
-    borderColor: colors.coral,
-  },
   checkmark: {
-    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: 'bold',
   },
   categoryLabel: {
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 18,
-    color: colors.textPrimary,
     marginBottom: 6,
-  },
-  categoryLabelSelected: {
-    color: colors.coral,
   },
   categoryDescription: {
     ...typography.bodySmall,
-    color: colors.textMuted,
     lineHeight: 20,
   },
   manageLink: {
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
   },
   manageLinkText: {
     ...typography.captionBold,
-    color: colors.purpleLight,
   },
   infoCard: {
     marginTop: 24,
@@ -252,12 +279,10 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 14,
-    color: colors.textPrimary,
     marginBottom: 6,
   },
   infoText: {
     ...typography.bodySmall,
-    color: colors.textSecondary,
     lineHeight: 20,
   },
   footer: {
@@ -267,8 +292,6 @@ const styles = StyleSheet.create({
     right: 0,
     padding: 20,
     paddingBottom: 34,
-    backgroundColor: colors.darkBg,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
   },
 });
