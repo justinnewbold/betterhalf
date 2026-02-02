@@ -5,14 +5,17 @@ import { SyncScoreRing } from '../../../components/game/SyncScoreRing';
 import { Card } from '../../../components/ui/Card';
 import { useAuthStore } from '../../../stores/authStore';
 import { useCoupleStore } from '../../../stores/coupleStore';
+import { useThemeStore } from '../../../stores/themeStore';
 import { getSupabase, TABLES } from '../../../lib/supabase';
-import { colors } from '../../../constants/colors';
+import { colors, getThemeColors, ThemeColors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
 
 interface CategoryBarProps {
   emoji: string;
   name: string;
   percentage: number;
+  themeColors: ThemeColors;
+  isDark: boolean;
 }
 
 interface CategoryStats {
@@ -21,15 +24,15 @@ interface CategoryStats {
   matches: number;
 }
 
-function CategoryBar({ emoji, name, percentage }: CategoryBarProps) {
+function CategoryBar({ emoji, name, percentage, themeColors, isDark }: CategoryBarProps) {
   return (
     <View style={styles.categoryRow}>
       <Text style={styles.categoryEmoji}>{emoji}</Text>
-      <Text style={styles.categoryName}>{name}</Text>
-      <View style={styles.categoryBar}>
-        <View style={[styles.categoryFill, { width: `${percentage}%` }]} />
+      <Text style={[styles.categoryName, { color: themeColors.textPrimary }]}>{name}</Text>
+      <View style={[styles.categoryBar, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
+        <View style={[styles.categoryFill, { width: `${percentage}%`, backgroundColor: themeColors.purpleLight }]} />
       </View>
-      <Text style={styles.categoryPct}>{percentage}%</Text>
+      <Text style={[styles.categoryPct, { color: themeColors.textSecondary }]}>{percentage}%</Text>
     </View>
   );
 }
@@ -45,8 +48,47 @@ const CATEGORY_CONFIG: Record<string, { emoji: string; name: string }> = {
 export default function Stats() {
   const { user } = useAuthStore();
   const { couple, stats, streak } = useCoupleStore();
+  const { isDark } = useThemeStore();
+  const themeColors = getThemeColors(isDark);
   const [categoryStats, setCategoryStats] = useState<CategoryStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Dynamic styles based on theme
+  const dynamicStyles = {
+    container: {
+      backgroundColor: themeColors.background,
+    },
+    title: {
+      color: themeColors.textPrimary,
+    },
+    overallLabel: {
+      color: themeColors.textMuted,
+    },
+    cardLabel: {
+      color: themeColors.textMuted,
+    },
+    emptyTitle: {
+      color: themeColors.textPrimary,
+    },
+    emptyText: {
+      color: themeColors.textMuted,
+    },
+    statBox: {
+      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+    },
+    statNumber: {
+      color: themeColors.purpleLight,
+    },
+    statLabel: {
+      color: themeColors.textMuted,
+    },
+    tipTitle: {
+      color: themeColors.textPrimary,
+    },
+    tipText: {
+      color: themeColors.textSecondary,
+    },
+  };
 
   useEffect(() => {
     loadCategoryStats();
@@ -128,71 +170,73 @@ export default function Stats() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.purple} />
+          <ActivityIndicator size="large" color={themeColors.purple} />
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={['top']}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Your Sync Score</Text>
+        <Text style={[styles.title, dynamicStyles.title]}>Your Sync Score</Text>
 
         <View style={styles.ringContainer}>
           <SyncScoreRing percentage={overallSync} size="large" />
-          <Text style={styles.overallLabel}>OVERALL</Text>
+          <Text style={[styles.overallLabel, dynamicStyles.overallLabel]}>OVERALL</Text>
         </View>
 
         {totalGames === 0 ? (
           <Card style={styles.card}>
-            <Text style={styles.emptyTitle}>No games played yet!</Text>
-            <Text style={styles.emptyText}>
+            <Text style={[styles.emptyTitle, dynamicStyles.emptyTitle]}>No games played yet!</Text>
+            <Text style={[styles.emptyText, dynamicStyles.emptyText]}>
               Play your first Daily Sync to start tracking your stats.
             </Text>
           </Card>
         ) : (
           <>
             <Card style={styles.card}>
-              <Text style={styles.cardLabel}>BY CATEGORY</Text>
+              <Text style={[styles.cardLabel, dynamicStyles.cardLabel]}>BY CATEGORY</Text>
               {categoryDisplay.map((cat) => (
                 <CategoryBar 
                   key={cat.name} 
                   emoji={cat.emoji}
                   name={cat.name}
                   percentage={cat.percentage}
+                  themeColors={themeColors}
+                  isDark={isDark}
                 />
               ))}
             </Card>
 
             <Card style={styles.card}>
-              <Text style={styles.cardLabel}>STATS</Text>
+              <Text style={[styles.cardLabel, dynamicStyles.cardLabel]}>STATS</Text>
               <View style={styles.statsGrid}>
-                <View style={styles.statBox}>
-                  <Text style={styles.statNumber}>{stats?.total_questions || 0}</Text>
-                  <Text style={styles.statLabel}>Questions Answered</Text>
+                <View style={[styles.statBox, dynamicStyles.statBox]}>
+                  <Text style={[styles.statNumber, dynamicStyles.statNumber]}>{stats?.total_questions || 0}</Text>
+                  <Text style={[styles.statLabel, dynamicStyles.statLabel]}>Questions Answered</Text>
                 </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statNumber}>{totalMatches}</Text>
-                  <Text style={styles.statLabel}>Perfect Matches</Text>
+                <View style={[styles.statBox, dynamicStyles.statBox]}>
+                  <Text style={[styles.statNumber, dynamicStyles.statNumber]}>{totalMatches}</Text>
+                  <Text style={[styles.statLabel, dynamicStyles.statLabel]}>Perfect Matches</Text>
                 </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statNumber}>{currentStreak}</Text>
-                  <Text style={styles.statLabel}>Current Streak</Text>
+                <View style={[styles.statBox, dynamicStyles.statBox]}>
+                  <Text style={[styles.statNumber, dynamicStyles.statNumber]}>{currentStreak}</Text>
+                  <Text style={[styles.statLabel, dynamicStyles.statLabel]}>Current Streak</Text>
                 </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statNumber}>{longestStreak}</Text>
-                  <Text style={styles.statLabel}>Longest Streak</Text>
+                <View style={[styles.statBox, dynamicStyles.statBox]}>
+                  <Text style={[styles.statNumber, dynamicStyles.statNumber]}>{longestStreak}</Text>
+                  <Text style={[styles.statLabel, dynamicStyles.statLabel]}>Longest Streak</Text>
                 </View>
               </View>
             </Card>
 
             {strongest && weakest && strongest.name !== weakest.name && (
               <Card variant="gradient" style={styles.card}>
-                <Text style={styles.tipTitle}>💡 Tip</Text>
-                <Text style={styles.tipText}>
+                <Text style={[styles.tipTitle, dynamicStyles.tipTitle]}>💡 Tip</Text>
+                <Text style={[styles.tipText, dynamicStyles.tipText]}>
                   Your {strongest.name} category is your strongest at {strongest.percentage}%! 
                   Consider exploring more {weakest.name} questions to improve that score.
                 </Text>
@@ -208,7 +252,6 @@ export default function Stats() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.darkBg,
   },
   loadingContainer: {
     flex: 1,
@@ -225,7 +268,6 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fontFamilies.display,
     fontSize: 28,
-    color: colors.textPrimary,
     marginBottom: 24,
     marginTop: 8,
   },
@@ -235,7 +277,6 @@ const styles = StyleSheet.create({
   },
   overallLabel: {
     ...typography.caption,
-    color: colors.textMuted,
     marginTop: 12,
   },
   card: {
@@ -243,19 +284,16 @@ const styles = StyleSheet.create({
   },
   cardLabel: {
     ...typography.captionBold,
-    color: colors.textMuted,
     marginBottom: 16,
   },
   emptyTitle: {
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 17,
-    color: colors.textPrimary,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptyText: {
     ...typography.body,
-    color: colors.textMuted,
     textAlign: 'center',
   },
   categoryRow: {
@@ -269,25 +307,21 @@ const styles = StyleSheet.create({
   },
   categoryName: {
     ...typography.bodySmall,
-    color: colors.textPrimary,
     width: 80,
   },
   categoryBar: {
     flex: 1,
     height: 8,
-    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 4,
     marginRight: 12,
     overflow: 'hidden',
   },
   categoryFill: {
     height: '100%',
-    backgroundColor: colors.purpleLight,
     borderRadius: 4,
   },
   categoryPct: {
     ...typography.captionBold,
-    color: colors.textSecondary,
     width: 36,
     textAlign: 'right',
   },
@@ -298,7 +332,6 @@ const styles = StyleSheet.create({
   },
   statBox: {
     width: '47%',
-    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -306,23 +339,19 @@ const styles = StyleSheet.create({
   statNumber: {
     fontFamily: fontFamilies.bodyBold,
     fontSize: 28,
-    color: colors.purpleLight,
     marginBottom: 4,
   },
   statLabel: {
     ...typography.caption,
-    color: colors.textMuted,
     textAlign: 'center',
   },
   tipTitle: {
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 15,
-    color: colors.textPrimary,
     marginBottom: 6,
   },
   tipText: {
     ...typography.bodySmall,
-    color: colors.textSecondary,
     lineHeight: 20,
   },
 });
