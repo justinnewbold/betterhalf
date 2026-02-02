@@ -13,8 +13,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '../../../components/ui/Card';
 import { useAuthStore } from '../../../stores/authStore';
 import { useCoupleStore } from '../../../stores/coupleStore';
+import { useThemeStore } from '../../../stores/themeStore';
 import { getSupabase, TABLES, QUESTION_CATEGORIES, HistoryItem } from '../../../lib/supabase';
-import { colors } from '../../../constants/colors';
+import { colors, getThemeColors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
 
 interface GroupedHistory {
@@ -26,10 +27,67 @@ interface GroupedHistory {
 export default function History() {
   const { user, userProfile } = useAuthStore();
   const { couple, partnerProfile } = useCoupleStore();
+  const { isDark } = useThemeStore();
+  const themeColors = getThemeColors(isDark);
   const [history, setHistory] = useState<GroupedHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
+  const dynamicStyles = {
+    container: {
+      backgroundColor: themeColors.background,
+    },
+    closeButton: {
+      color: themeColors.textMuted,
+    },
+    headerTitle: {
+      color: themeColors.textPrimary,
+    },
+    emptyTitle: {
+      color: themeColors.textPrimary,
+    },
+    emptyText: {
+      color: themeColors.textMuted,
+    },
+    dateHeader: {
+      color: themeColors.textMuted,
+    },
+    categoryBadge: {
+      backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+    },
+    categoryLabel: {
+      color: themeColors.textSecondary,
+    },
+    matchText: {
+      color: themeColors.textPrimary,
+    },
+    questionText: {
+      color: themeColors.textPrimary,
+    },
+    previewText: {
+      color: themeColors.textSecondary,
+    },
+    expandHint: {
+      color: themeColors.textMuted,
+    },
+    answersContainer: {
+      borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+    },
+    answerPersonName: {
+      color: themeColors.textMuted,
+    },
+    youBadge: {
+      color: themeColors.purpleLight,
+    },
+    answerBox: {
+      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+      borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+    },
+    answerText: {
+      color: themeColors.textPrimary,
+    },
+  };
 
   const loadHistory = useCallback(async () => {
     const supabase = getSupabase();
@@ -158,28 +216,28 @@ export default function History() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, dynamicStyles.container]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose}>
-            <Text style={styles.closeButton}>✕</Text>
+            <Text style={[styles.closeButton, dynamicStyles.closeButton]}>✕</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>History</Text>
+          <Text style={[styles.headerTitle, dynamicStyles.headerTitle]}>History</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.purple} />
+          <ActivityIndicator size="large" color={themeColors.purple} />
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={handleClose}>
-          <Text style={styles.closeButton}>✕</Text>
+          <Text style={[styles.closeButton, dynamicStyles.closeButton]}>✕</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>History</Text>
+        <Text style={[styles.headerTitle, dynamicStyles.headerTitle]}>History</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -190,22 +248,22 @@ export default function History() {
           <RefreshControl 
             refreshing={isRefreshing} 
             onRefresh={onRefresh}
-            tintColor={colors.purple}
+            tintColor={themeColors.purple}
           />
         }
       >
         {history.length === 0 ? (
           <Card style={styles.emptyCard}>
             <Text style={styles.emptyIcon}>📚</Text>
-            <Text style={styles.emptyTitle}>No History Yet</Text>
-            <Text style={styles.emptyText}>
+            <Text style={[styles.emptyTitle, dynamicStyles.emptyTitle]}>No History Yet</Text>
+            <Text style={[styles.emptyText, dynamicStyles.emptyText]}>
               Complete daily questions with your partner to see your history here!
             </Text>
           </Card>
         ) : (
           history.map((group) => (
             <View key={group.date} style={styles.dateGroup}>
-              <Text style={styles.dateHeader}>{group.displayDate}</Text>
+              <Text style={[styles.dateHeader, dynamicStyles.dateHeader]}>{group.displayDate}</Text>
               
               {group.items.map((item) => {
                 const isExpanded = expandedItems.has(item.id);
@@ -224,46 +282,47 @@ export default function History() {
                     <Card style={styles.historyCard}>
                       {/* Header Row */}
                       <View style={styles.cardHeader}>
-                        <View style={styles.categoryBadge}>
+                        <View style={[styles.categoryBadge, dynamicStyles.categoryBadge]}>
                           <Text style={styles.categoryIcon}>{categoryConfig.icon}</Text>
-                          <Text style={styles.categoryLabel}>{categoryConfig.label}</Text>
+                          <Text style={[styles.categoryLabel, dynamicStyles.categoryLabel]}>{categoryConfig.label}</Text>
                         </View>
                         <View style={[
                           styles.matchBadge,
                           item.is_match ? styles.matchSuccess : styles.matchMiss
                         ]}>
-                          <Text style={styles.matchText}>
+                          <Text style={[styles.matchText, dynamicStyles.matchText]}>
                             {item.is_match ? '✓ Match!' : '✗ Different'}
                           </Text>
                         </View>
                       </View>
 
                       {/* Question */}
-                      <Text style={styles.questionText}>{item.question_text}</Text>
+                      <Text style={[styles.questionText, dynamicStyles.questionText]}>{item.question_text}</Text>
 
                       {/* Collapsed Preview */}
                       {!isExpanded && (
                         <View style={styles.previewRow}>
-                          <Text style={styles.previewText}>
+                          <Text style={[styles.previewText, dynamicStyles.previewText]}>
                             {myName}: {item.options[myAnswer ?? 0] || 'N/A'}
                           </Text>
-                          <Text style={styles.expandHint}>Tap to see details</Text>
+                          <Text style={[styles.expandHint, dynamicStyles.expandHint]}>Tap to see details</Text>
                         </View>
                       )}
 
                       {/* Expanded Details */}
                       {isExpanded && (
-                        <View style={styles.answersContainer}>
+                        <View style={[styles.answersContainer, dynamicStyles.answersContainer]}>
                           <View style={styles.answerRow}>
                             <View style={styles.answerPerson}>
-                              <Text style={styles.answerPersonName}>{myName}</Text>
-                              <Text style={styles.youBadge}>(You)</Text>
+                              <Text style={[styles.answerPersonName, dynamicStyles.answerPersonName]}>{myName}</Text>
+                              <Text style={[styles.youBadge, dynamicStyles.youBadge]}>(You)</Text>
                             </View>
                             <View style={[
                               styles.answerBox,
+                              dynamicStyles.answerBox,
                               item.is_match && styles.answerBoxMatch
                             ]}>
-                              <Text style={styles.answerText}>
+                              <Text style={[styles.answerText, dynamicStyles.answerText]}>
                                 {myAnswer !== null ? item.options[myAnswer] : 'No answer'}
                               </Text>
                             </View>
@@ -271,13 +330,14 @@ export default function History() {
 
                           <View style={styles.answerRow}>
                             <View style={styles.answerPerson}>
-                              <Text style={styles.answerPersonName}>{partnerName}</Text>
+                              <Text style={[styles.answerPersonName, dynamicStyles.answerPersonName]}>{partnerName}</Text>
                             </View>
                             <View style={[
                               styles.answerBox,
+                              dynamicStyles.answerBox,
                               item.is_match && styles.answerBoxMatch
                             ]}>
-                              <Text style={styles.answerText}>
+                              <Text style={[styles.answerText, dynamicStyles.answerText]}>
                                 {theirAnswer !== null ? item.options[theirAnswer] : 'No answer'}
                               </Text>
                             </View>
@@ -307,7 +367,6 @@ export default function History() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.darkBg,
   },
   header: {
     flexDirection: 'row',
@@ -318,13 +377,11 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     fontSize: 20,
-    color: colors.textMuted,
     padding: 4,
   },
   headerTitle: {
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 17,
-    color: colors.textPrimary,
   },
   loadingContainer: {
     flex: 1,
@@ -350,12 +407,10 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 18,
-    color: colors.textPrimary,
     marginBottom: 8,
   },
   emptyText: {
     ...typography.body,
-    color: colors.textMuted,
     textAlign: 'center',
   },
   dateGroup: {
@@ -364,7 +419,6 @@ const styles = StyleSheet.create({
   dateHeader: {
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 14,
-    color: colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 12,
@@ -382,7 +436,6 @@ const styles = StyleSheet.create({
   categoryBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -393,7 +446,6 @@ const styles = StyleSheet.create({
   },
   categoryLabel: {
     ...typography.caption,
-    color: colors.textSecondary,
   },
   matchBadge: {
     paddingHorizontal: 10,
@@ -408,12 +460,10 @@ const styles = StyleSheet.create({
   },
   matchText: {
     ...typography.captionBold,
-    color: colors.textPrimary,
   },
   questionText: {
     fontFamily: fontFamilies.bodySemiBold,
     fontSize: 16,
-    color: colors.textPrimary,
     lineHeight: 24,
     marginBottom: 12,
   },
@@ -424,19 +474,16 @@ const styles = StyleSheet.create({
   },
   previewText: {
     ...typography.bodySmall,
-    color: colors.textSecondary,
     flex: 1,
   },
   expandHint: {
     ...typography.caption,
-    color: colors.textMuted,
     fontStyle: 'italic',
   },
   answersContainer: {
     marginTop: 8,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
   },
   answerRow: {
     marginBottom: 12,
@@ -448,20 +495,16 @@ const styles = StyleSheet.create({
   },
   answerPersonName: {
     ...typography.captionBold,
-    color: colors.textMuted,
   },
   youBadge: {
     ...typography.caption,
-    color: colors.purpleLight,
     marginLeft: 6,
   },
   answerBox: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
   answerBoxMatch: {
     borderColor: colors.success,
@@ -469,7 +512,6 @@ const styles = StyleSheet.create({
   },
   answerText: {
     ...typography.body,
-    color: colors.textPrimary,
   },
   matchCelebration: {
     alignItems: 'center',
