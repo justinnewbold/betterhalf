@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Card } from '../ui/Card';
-import { colors } from '../../constants/colors';
+import { useThemeStore } from '../../stores/themeStore';
+import { getThemeColors } from '../../constants/colors';
 import { typography, fontFamilies } from '../../constants/typography';
 
 interface QuestionCardProps {
@@ -22,6 +23,8 @@ const categoryEmojis: Record<string, string> = {
   history: '📸',
   spice: '🔥',
   fun: '🎉',
+  deep_talks: '💭',
+  custom: '✨',
 };
 
 const categoryLabels: Record<string, string> = {
@@ -30,19 +33,57 @@ const categoryLabels: Record<string, string> = {
   history: 'History',
   spice: 'Spice',
   fun: 'Fun',
+  deep_talks: 'Deep Talks',
+  custom: 'Custom',
 };
 
 export function QuestionCard({ question, selectedIndex, onSelectOption, disabled }: QuestionCardProps) {
+  const { isDark } = useThemeStore();
+  const themeColors = getThemeColors(isDark);
+
+  const dynamicStyles = {
+    category: {
+      ...typography.caption,
+      color: themeColors.textMuted,
+      textAlign: 'center' as const,
+    },
+    questionText: {
+      fontFamily: fontFamilies.display,
+      fontSize: 22,
+      color: themeColors.textPrimary,
+      textAlign: 'center' as const,
+      lineHeight: 30,
+    },
+    optionButton: {
+      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
+      borderRadius: 12,
+      padding: 16,
+    },
+    optionSelected: {
+      backgroundColor: isDark ? 'rgba(192,132,252,0.15)' : 'rgba(147,51,234,0.12)',
+      borderColor: themeColors.purpleLight,
+    },
+    optionText: {
+      ...typography.body,
+      color: themeColors.textPrimary,
+    },
+    optionTextSelected: {
+      color: themeColors.purpleLight,
+    },
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.category}>
-          {categoryEmojis[question.category]} {categoryLabels[question.category]}
+        <Text style={dynamicStyles.category}>
+          {categoryEmojis[question.category] || '❓'} {categoryLabels[question.category] || question.category}
         </Text>
       </View>
 
       <Card style={styles.questionCard}>
-        <Text style={styles.questionText}>{question.question}</Text>
+        <Text style={dynamicStyles.questionText}>{question.question}</Text>
       </Card>
 
       <View style={styles.options}>
@@ -50,8 +91,8 @@ export function QuestionCard({ question, selectedIndex, onSelectOption, disabled
           <TouchableOpacity
             key={index}
             style={[
-              styles.optionButton,
-              selectedIndex === index && styles.optionSelected,
+              dynamicStyles.optionButton,
+              selectedIndex === index && dynamicStyles.optionSelected,
               disabled && styles.optionDisabled,
             ]}
             onPress={() => onSelectOption(index)}
@@ -59,8 +100,8 @@ export function QuestionCard({ question, selectedIndex, onSelectOption, disabled
             activeOpacity={0.7}
           >
             <Text style={[
-              styles.optionText,
-              selectedIndex === index && styles.optionTextSelected,
+              dynamicStyles.optionText,
+              selectedIndex === index && dynamicStyles.optionTextSelected,
             ]}>
               {option}
             </Text>
@@ -78,44 +119,14 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 12,
   },
-  category: {
-    ...typography.caption,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
   questionCard: {
     marginBottom: 24,
     alignItems: 'center',
   },
-  questionText: {
-    fontFamily: fontFamilies.display,
-    fontSize: 22,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    lineHeight: 30,
-  },
   options: {
     gap: 12,
   },
-  optionButton: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 12,
-    padding: 16,
-  },
-  optionSelected: {
-    backgroundColor: 'rgba(192,132,252,0.15)',
-    borderColor: colors.purpleLight,
-  },
   optionDisabled: {
     opacity: 0.5,
-  },
-  optionText: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  optionTextSelected: {
-    color: colors.purpleLight,
   },
 });
