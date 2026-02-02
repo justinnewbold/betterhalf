@@ -7,6 +7,7 @@ import { Button } from '../../../components/ui/Button';
 import { useAuthStore } from '../../../stores/authStore';
 import { useCoupleStore } from '../../../stores/coupleStore';
 import { useThemeStore } from '../../../stores/themeStore';
+import { useAchievementStore } from '../../../stores/achievementStore';
 import { getSupabase, TABLES } from '../../../lib/supabase';
 import { colors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
@@ -15,6 +16,8 @@ export default function Settings() {
   const { user } = useAuthStore();
   const { couple, partnerProfile, reset: resetCoupleStore } = useCoupleStore();
   const { mode: themeMode, isDark } = useThemeStore();
+  const { achievements, userAchievements } = useAchievementStore();
+  const unlockedCount = userAchievements.length;
   const [showResetModal, setShowResetModal] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
 
@@ -187,6 +190,12 @@ export default function Settings() {
             label="Question History" 
             subtitle="View past answers"
             onPress={() => router.push('/(main)/settings/history')} 
+          />
+          <MenuItem 
+            icon="🏆" 
+            label="Achievements" 
+            subtitle={`${unlockedCount}/${achievements.length} unlocked`}
+            onPress={() => router.push('/(main)/settings/achievements')} 
           />
         </Card>
 
