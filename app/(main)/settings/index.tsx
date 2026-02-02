@@ -9,13 +9,14 @@ import { useCoupleStore } from '../../../stores/coupleStore';
 import { useThemeStore } from '../../../stores/themeStore';
 import { useAchievementStore } from '../../../stores/achievementStore';
 import { getSupabase, TABLES } from '../../../lib/supabase';
-import { colors } from '../../../constants/colors';
+import { colors, getThemeColors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
 
 export default function Settings() {
   const { user } = useAuthStore();
   const { couple, partnerProfile, reset: resetCoupleStore } = useCoupleStore();
   const { mode: themeMode, isDark } = useThemeStore();
+  const themeColors = getThemeColors(isDark);
   const { achievements, userAchievements } = useAchievementStore();
   const unlockedCount = userAchievements.length;
   const [showResetModal, setShowResetModal] = useState(false);
@@ -138,113 +139,242 @@ export default function Settings() {
     );
   };
 
+  // Dynamic styles based on theme
+  const dynamicStyles = {
+    container: {
+      flex: 1,
+      backgroundColor: themeColors.background,
+    },
+    closeButton: {
+      fontSize: 20,
+      color: themeColors.textMuted,
+      padding: 4,
+    },
+    headerTitle: {
+      fontFamily: fontFamilies.bodySemiBold,
+      fontSize: 17,
+      color: themeColors.textPrimary,
+    },
+    sectionTitle: {
+      fontFamily: fontFamilies.bodySemiBold,
+      fontSize: 15,
+      color: themeColors.textMuted,
+      marginBottom: 12,
+      textTransform: 'uppercase' as const,
+      letterSpacing: 0.5,
+    },
+    menuLabel: {
+      ...typography.body,
+      color: themeColors.textPrimary,
+    },
+    menuSubtitle: {
+      ...typography.caption,
+      color: themeColors.textMuted,
+      marginTop: 2,
+    },
+    menuArrow: {
+      fontSize: 20,
+      color: themeColors.textMuted,
+    },
+    partnerLabel: {
+      ...typography.caption,
+      color: themeColors.textMuted,
+      marginBottom: 4,
+    },
+    partnerName: {
+      fontFamily: fontFamilies.bodySemiBold,
+      fontSize: 18,
+      color: themeColors.textPrimary,
+    },
+    partnerStatus: {
+      ...typography.caption,
+      color: themeColors.success,
+      marginTop: 4,
+    },
+    inviteCodeBox: {
+      backgroundColor: themeColors.inputBackground,
+      borderRadius: 12,
+      padding: 16,
+      alignItems: 'center' as const,
+    },
+    inviteLabel: {
+      ...typography.caption,
+      color: themeColors.textMuted,
+      marginBottom: 8,
+    },
+    inviteCode: {
+      fontFamily: fontFamilies.bodyBold,
+      fontSize: 24,
+      color: themeColors.purpleLight,
+      letterSpacing: 4,
+    },
+    dangerItem: {
+      flexDirection: 'row' as const,
+      alignItems: 'flex-start' as const,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: themeColors.cardBorder,
+    },
+    dangerLabel: {
+      fontFamily: fontFamilies.bodySemiBold,
+      fontSize: 16,
+      color: themeColors.textPrimary,
+      marginBottom: 4,
+    },
+    dangerDescription: {
+      ...typography.bodySmall,
+      color: themeColors.textMuted,
+    },
+    aboutLabel: {
+      ...typography.body,
+      color: themeColors.textMuted,
+    },
+    aboutValue: {
+      ...typography.body,
+      color: themeColors.textPrimary,
+    },
+    modalContent: {
+      backgroundColor: themeColors.cardBackground,
+      borderRadius: 20,
+      padding: 24,
+      width: '100%',
+      maxWidth: 340,
+    },
+    modalTitle: {
+      fontFamily: fontFamilies.bodySemiBold,
+      fontSize: 20,
+      color: themeColors.textPrimary,
+      marginBottom: 12,
+      textAlign: 'center' as const,
+    },
+    modalText: {
+      ...typography.body,
+      color: themeColors.textSecondary,
+      marginBottom: 8,
+      textAlign: 'center' as const,
+    },
+    modalWarning: {
+      ...typography.bodySmall,
+      color: themeColors.coral,
+      marginBottom: 24,
+      textAlign: 'center' as const,
+    },
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={dynamicStyles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleClose}>
-          <Text style={styles.closeButton}>✕</Text>
+          <Text style={dynamicStyles.closeButton}>✕</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={dynamicStyles.headerTitle}>Settings</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         {/* Account */}
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Account</Text>
+          <Text style={dynamicStyles.sectionTitle}>Account</Text>
           <MenuItem 
             icon="👤" 
             label="Edit Profile" 
-            onPress={() => router.push('/(main)/settings/edit-profile')} 
+            onPress={() => router.push('/(main)/settings/edit-profile')}
+            themeColors={themeColors}
           />
           <MenuItem 
             icon="🔔" 
             label="Notifications" 
-            onPress={() => router.push('/(main)/settings/notifications')} 
+            onPress={() => router.push('/(main)/settings/notifications')}
+            themeColors={themeColors}
           />
           <MenuItem 
             icon="🎨" 
             label="Appearance" 
             subtitle={getThemeModeLabel()}
-            onPress={() => router.push('/(main)/settings/appearance')} 
+            onPress={() => router.push('/(main)/settings/appearance')}
+            themeColors={themeColors}
           />
         </Card>
 
         {/* Game Settings */}
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Game</Text>
+          <Text style={dynamicStyles.sectionTitle}>Game</Text>
           <MenuItem 
             icon="🎯" 
             label="Question Categories" 
-            onPress={() => router.push('/(main)/settings/categories')} 
+            onPress={() => router.push('/(main)/settings/categories')}
+            themeColors={themeColors}
           />
           <MenuItem 
             icon="✨" 
             label="Custom Questions" 
             subtitle="Create your own questions"
-            onPress={() => router.push('/(main)/settings/custom-questions')} 
+            onPress={() => router.push('/(main)/settings/custom-questions')}
+            themeColors={themeColors}
           />
           <MenuItem 
             icon="📚" 
             label="Question History" 
             subtitle="View past answers"
-            onPress={() => router.push('/(main)/settings/history')} 
+            onPress={() => router.push('/(main)/settings/history')}
+            themeColors={themeColors}
           />
           <MenuItem 
             icon="🏆" 
             label="Achievements" 
             subtitle={`${unlockedCount}/${achievements.length} unlocked`}
-            onPress={() => router.push('/(main)/settings/achievements')} 
+            onPress={() => router.push('/(main)/settings/achievements')}
+            themeColors={themeColors}
           />
         </Card>
 
         {/* Connection */}
         {couple && (
           <Card style={styles.card}>
-            <Text style={styles.sectionTitle}>Connection</Text>
+            <Text style={dynamicStyles.sectionTitle}>Connection</Text>
             <View style={styles.partnerInfo}>
-              <Text style={styles.partnerLabel}>Connected with</Text>
-              <Text style={styles.partnerName}>{connectionName}</Text>
+              <Text style={dynamicStyles.partnerLabel}>Connected with</Text>
+              <Text style={dynamicStyles.partnerName}>{connectionName}</Text>
               {couple.status === 'active' && (
-                <Text style={styles.partnerStatus}>✓ Active</Text>
+                <Text style={dynamicStyles.partnerStatus}>✓ Active</Text>
               )}
             </View>
             
-            <View style={styles.inviteCodeBox}>
-              <Text style={styles.inviteLabel}>Your Invite Code</Text>
-              <Text style={styles.inviteCode}>{couple.invite_code}</Text>
+            <View style={dynamicStyles.inviteCodeBox}>
+              <Text style={dynamicStyles.inviteLabel}>Your Invite Code</Text>
+              <Text style={dynamicStyles.inviteCode}>{couple.invite_code}</Text>
             </View>
           </Card>
         )}
 
         {/* Data Management */}
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Data Management</Text>
+          <Text style={dynamicStyles.sectionTitle}>Data Management</Text>
           
           <TouchableOpacity 
-            style={styles.dangerItem}
+            style={dynamicStyles.dangerItem}
             onPress={() => setShowResetModal(true)}
           >
             <Text style={styles.dangerIcon}>🔄</Text>
             <View style={styles.dangerContent}>
-              <Text style={styles.dangerLabel}>Reset Game Data</Text>
-              <Text style={styles.dangerDescription}>
+              <Text style={dynamicStyles.dangerLabel}>Reset Game Data</Text>
+              <Text style={dynamicStyles.dangerDescription}>
                 Clear all your stats and start fresh
               </Text>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={[styles.dangerItem, styles.dangerItemLast]}
+            style={[dynamicStyles.dangerItem, styles.dangerItemLast]}
             onPress={handleDisconnect}
           >
-            <Text style={styles.dangerIcon}>💔</Text>
+            <Text style={styles.dangerIcon}>🔗</Text>
             <View style={styles.dangerContent}>
-              <Text style={[styles.dangerLabel, { color: colors.coral }]}>
+              <Text style={[dynamicStyles.dangerLabel, { color: themeColors.coral }]}>
                 Disconnect
               </Text>
-              <Text style={styles.dangerDescription}>
+              <Text style={dynamicStyles.dangerDescription}>
                 Remove your connection and delete all shared data
               </Text>
             </View>
@@ -253,10 +383,10 @@ export default function Settings() {
 
         {/* About */}
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>About</Text>
+          <Text style={dynamicStyles.sectionTitle}>About</Text>
           <View style={styles.aboutRow}>
-            <Text style={styles.aboutLabel}>Version</Text>
-            <Text style={styles.aboutValue}>1.2.0</Text>
+            <Text style={dynamicStyles.aboutLabel}>Version</Text>
+            <Text style={dynamicStyles.aboutValue}>1.2.0</Text>
           </View>
         </Card>
       </ScrollView>
@@ -269,12 +399,12 @@ export default function Settings() {
         onRequestClose={() => setShowResetModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Reset Game Data?</Text>
-            <Text style={styles.modalText}>
+          <View style={dynamicStyles.modalContent}>
+            <Text style={dynamicStyles.modalTitle}>Reset Game Data?</Text>
+            <Text style={dynamicStyles.modalText}>
               This will clear all your game history, stats, and streaks. Your connection will remain.
             </Text>
-            <Text style={styles.modalWarning}>This action cannot be undone.</Text>
+            <Text style={dynamicStyles.modalWarning}>This action cannot be undone.</Text>
             
             <View style={styles.modalButtons}>
               <Button
@@ -302,42 +432,29 @@ interface MenuItemProps {
   label: string;
   subtitle?: string;
   onPress: () => void;
+  themeColors: ReturnType<typeof getThemeColors>;
 }
 
-function MenuItem({ icon, label, subtitle, onPress }: MenuItemProps) {
+function MenuItem({ icon, label, subtitle, onPress, themeColors }: MenuItemProps) {
   return (
     <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
       <Text style={styles.menuIcon}>{icon}</Text>
       <View style={styles.menuContent}>
-        <Text style={styles.menuLabel}>{label}</Text>
-        {subtitle && <Text style={styles.menuSubtitle}>{subtitle}</Text>}
+        <Text style={[styles.menuLabelBase, { color: themeColors.textPrimary }]}>{label}</Text>
+        {subtitle && <Text style={[styles.menuSubtitleBase, { color: themeColors.textMuted }]}>{subtitle}</Text>}
       </View>
-      <Text style={styles.menuArrow}>›</Text>
+      <Text style={[styles.menuArrowBase, { color: themeColors.textMuted }]}>›</Text>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.darkBg,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-  },
-  closeButton: {
-    fontSize: 20,
-    color: colors.textMuted,
-    padding: 4,
-  },
-  headerTitle: {
-    fontFamily: fontFamilies.bodySemiBold,
-    fontSize: 17,
-    color: colors.textPrimary,
   },
   scroll: {
     flex: 1,
@@ -348,14 +465,6 @@ const styles = StyleSheet.create({
   },
   card: {
     marginBottom: 16,
-  },
-  sectionTitle: {
-    fontFamily: fontFamilies.bodySemiBold,
-    fontSize: 15,
-    color: colors.textMuted,
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   menuItem: {
     flexDirection: 'row',
@@ -369,63 +478,18 @@ const styles = StyleSheet.create({
   menuContent: {
     flex: 1,
   },
-  menuLabel: {
+  menuLabelBase: {
     ...typography.body,
-    color: colors.textPrimary,
   },
-  menuSubtitle: {
+  menuSubtitleBase: {
     ...typography.caption,
-    color: colors.textMuted,
     marginTop: 2,
   },
-  menuArrow: {
+  menuArrowBase: {
     fontSize: 20,
-    color: colors.textMuted,
   },
   partnerInfo: {
     marginBottom: 16,
-  },
-  partnerLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginBottom: 4,
-  },
-  partnerName: {
-    fontFamily: fontFamilies.bodySemiBold,
-    fontSize: 18,
-    color: colors.textPrimary,
-  },
-  partnerStatus: {
-    ...typography.caption,
-    color: colors.success,
-    marginTop: 4,
-  },
-  inviteCodeBox: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-  },
-  inviteLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginBottom: 8,
-  },
-  inviteCode: {
-    fontFamily: fontFamilies.bodyBold,
-    fontSize: 24,
-    color: colors.purpleLight,
-    letterSpacing: 4,
-  },
-  dangerItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  dangerItemLast: {
-    borderBottomWidth: 0,
   },
   dangerIcon: {
     fontSize: 20,
@@ -435,28 +499,13 @@ const styles = StyleSheet.create({
   dangerContent: {
     flex: 1,
   },
-  dangerLabel: {
-    fontFamily: fontFamilies.bodySemiBold,
-    fontSize: 16,
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  dangerDescription: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
+  dangerItemLast: {
+    borderBottomWidth: 0,
   },
   aboutRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 8,
-  },
-  aboutLabel: {
-    ...typography.body,
-    color: colors.textMuted,
-  },
-  aboutValue: {
-    ...typography.body,
-    color: colors.textPrimary,
   },
   modalOverlay: {
     flex: 1,
@@ -464,32 +513,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-  },
-  modalContent: {
-    backgroundColor: colors.cardDark,
-    borderRadius: 20,
-    padding: 24,
-    width: '100%',
-    maxWidth: 340,
-  },
-  modalTitle: {
-    fontFamily: fontFamilies.bodySemiBold,
-    fontSize: 20,
-    color: colors.textPrimary,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  modalText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  modalWarning: {
-    ...typography.bodySmall,
-    color: colors.coral,
-    marginBottom: 24,
-    textAlign: 'center',
   },
   modalButtons: {
     flexDirection: 'row',
