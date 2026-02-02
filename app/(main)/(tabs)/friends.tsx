@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { colors } from '../../../constants/colors';
+import { colors, getThemeColors } from '../../../constants/colors';
+import { useThemeStore } from '../../../stores/themeStore';
 import { useFriendsStore } from '../../../stores/friendsStore';
 import { useAuthStore } from '../../../stores/authStore';
 import { RELATIONSHIP_TYPES, RelationshipType } from '../../../lib/supabase';
@@ -19,6 +20,8 @@ import AddFriendModal from '../../../components/AddFriendModal';
 
 export default function FriendsScreen() {
   const { user } = useAuthStore();
+  const { isDark } = useThemeStore();
+  const themeColors = getThemeColors(isDark);
   const { 
     friends, 
     pendingRequests, 
@@ -78,6 +81,124 @@ export default function FriendsScreen() {
     return RELATIONSHIP_TYPES.find(r => r.id === type)?.icon || '👤';
   };
 
+  // Dynamic styles based on theme
+  const dynamicStyles = {
+    container: {
+      flex: 1,
+      backgroundColor: themeColors.background,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: 'bold' as const,
+      color: themeColors.textPrimary,
+    },
+    sectionTitle: {
+      fontSize: 16,
+      fontWeight: '600' as const,
+      color: themeColors.textMuted,
+      marginBottom: 12,
+      textTransform: 'uppercase' as const,
+      letterSpacing: 0.5,
+    },
+    friendCard: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      backgroundColor: themeColors.cardBackground,
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: themeColors.cardBorder,
+    },
+    friendAvatar: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      backgroundColor: themeColors.inputBackground,
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+      overflow: 'hidden' as const,
+    },
+    friendName: {
+      fontSize: 17,
+      fontWeight: '600' as const,
+      color: themeColors.textPrimary,
+      marginBottom: 2,
+    },
+    friendType: {
+      fontSize: 13,
+      color: themeColors.textMuted,
+    },
+    playButton: {
+      color: themeColors.coral,
+      fontSize: 14,
+      fontWeight: '600' as const,
+    },
+    requestCard: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'space-between' as const,
+      backgroundColor: isDark ? 'rgba(255, 107, 107, 0.1)' : 'rgba(232, 85, 85, 0.08)',
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(255, 107, 107, 0.3)' : 'rgba(232, 85, 85, 0.2)',
+    },
+    requestText: {
+      fontSize: 15,
+      color: themeColors.textPrimary,
+    },
+    requestType: {
+      fontSize: 13,
+      color: themeColors.textMuted,
+      marginTop: 2,
+    },
+    declineButton: {
+      backgroundColor: themeColors.inputBackground,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    declineButtonText: {
+      color: themeColors.textMuted,
+      fontSize: 14,
+    },
+    pendingInviteCard: {
+      backgroundColor: themeColors.cardBackground,
+      borderRadius: 12,
+      padding: 14,
+      marginBottom: 8,
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between' as const,
+      alignItems: 'center' as const,
+      borderWidth: 1,
+      borderColor: themeColors.cardBorder,
+    },
+    pendingInviteText: {
+      fontSize: 14,
+      color: themeColors.textMuted,
+    },
+    pendingInviteCode: {
+      fontSize: 13,
+      color: themeColors.coral,
+      fontFamily: 'monospace',
+    },
+    emptyTitle: {
+      fontSize: 22,
+      fontWeight: 'bold' as const,
+      color: themeColors.textPrimary,
+      marginBottom: 8,
+    },
+    emptyText: {
+      fontSize: 15,
+      color: themeColors.textMuted,
+      textAlign: 'center' as const,
+      paddingHorizontal: 40,
+      marginBottom: 24,
+    },
+  };
+
   const renderFriendCard = (friend: typeof friends[0]) => {
     const displayName = friend.nickname || friend.friend_user?.display_name || 'Friend';
     const pendingGames = friend.pending_response_count || 0;
@@ -85,11 +206,11 @@ export default function FriendsScreen() {
     return (
       <TouchableOpacity
         key={friend.id}
-        style={styles.friendCard}
+        style={dynamicStyles.friendCard}
         onPress={() => router.push(`/friends/play/${friend.id}`)}
         activeOpacity={0.7}
       >
-        <View style={styles.friendAvatar}>
+        <View style={dynamicStyles.friendAvatar}>
           {friend.friend_user?.avatar_url ? (
             <Image
               source={{ uri: friend.friend_user.avatar_url }}
@@ -103,8 +224,8 @@ export default function FriendsScreen() {
         </View>
         
         <View style={styles.friendInfo}>
-          <Text style={styles.friendName}>{displayName}</Text>
-          <Text style={styles.friendType}>
+          <Text style={dynamicStyles.friendName}>{displayName}</Text>
+          <Text style={dynamicStyles.friendType}>
             {RELATIONSHIP_TYPES.find(r => r.id === friend.relationship_type)?.label || 'Friend'}
           </Text>
         </View>
@@ -115,7 +236,7 @@ export default function FriendsScreen() {
               <Text style={styles.pendingBadgeText}>{pendingGames}</Text>
             </View>
           ) : (
-            <Text style={styles.playButton}>Play →</Text>
+            <Text style={dynamicStyles.playButton}>Play →</Text>
           )}
         </View>
       </TouchableOpacity>
@@ -126,16 +247,16 @@ export default function FriendsScreen() {
     const senderName = request.friend_user?.display_name || 'Someone';
 
     return (
-      <View key={request.id} style={styles.requestCard}>
+      <View key={request.id} style={dynamicStyles.requestCard}>
         <View style={styles.requestInfo}>
           <Text style={styles.requestEmoji}>
             {getRelationshipIcon(request.relationship_type)}
           </Text>
           <View>
-            <Text style={styles.requestText}>
+            <Text style={dynamicStyles.requestText}>
               <Text style={styles.requestName}>{senderName}</Text> wants to connect
             </Text>
-            <Text style={styles.requestType}>
+            <Text style={dynamicStyles.requestType}>
               as {RELATIONSHIP_TYPES.find(r => r.id === request.relationship_type)?.label}
             </Text>
           </View>
@@ -148,10 +269,10 @@ export default function FriendsScreen() {
             <Text style={styles.acceptButtonText}>Accept</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.declineButton}
+            style={dynamicStyles.declineButton}
             onPress={() => handleDeclineInvite(request.id)}
           >
-            <Text style={styles.declineButtonText}>✕</Text>
+            <Text style={dynamicStyles.declineButtonText}>✕</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -159,9 +280,9 @@ export default function FriendsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={dynamicStyles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Friends & Family</Text>
+        <Text style={dynamicStyles.title}>Friends & Family</Text>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => setShowAddModal(true)}
@@ -177,14 +298,14 @@ export default function FriendsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.coral}
+            tintColor={themeColors.coral}
           />
         }
       >
         {/* Pending Requests */}
         {pendingRequests.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
+            <Text style={dynamicStyles.sectionTitle}>
               Pending Requests ({pendingRequests.length})
             </Text>
             {pendingRequests.map(renderPendingRequest)}
@@ -194,14 +315,14 @@ export default function FriendsScreen() {
         {/* Active Friends */}
         {friends.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Your Connections</Text>
+            <Text style={dynamicStyles.sectionTitle}>Your Connections</Text>
             {friends.map(renderFriendCard)}
           </View>
         ) : (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>👋</Text>
-            <Text style={styles.emptyTitle}>No friends yet</Text>
-            <Text style={styles.emptyText}>
+            <Text style={dynamicStyles.emptyTitle}>No friends yet</Text>
+            <Text style={dynamicStyles.emptyText}>
               Add friends and family to play daily question games with them!
             </Text>
             <TouchableOpacity
@@ -216,15 +337,15 @@ export default function FriendsScreen() {
         {/* Pending Invites (sent by you) */}
         {pendingInvites.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
+            <Text style={dynamicStyles.sectionTitle}>
               Pending Invites ({pendingInvites.length})
             </Text>
             {pendingInvites.map(invite => (
-              <View key={invite.id} style={styles.pendingInviteCard}>
-                <Text style={styles.pendingInviteText}>
+              <View key={invite.id} style={dynamicStyles.pendingInviteCard}>
+                <Text style={dynamicStyles.pendingInviteText}>
                   {getRelationshipIcon(invite.relationship_type)} Invite sent
                 </Text>
-                <Text style={styles.pendingInviteCode}>
+                <Text style={dynamicStyles.pendingInviteCode}>
                   Code: {invite.invite_code}
                 </Text>
               </View>
@@ -242,21 +363,12 @@ export default function FriendsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
   },
   addButton: {
     backgroundColor: colors.coral,
@@ -279,31 +391,6 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 24,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textMuted,
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  friendCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.cardDark,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-  },
-  friendAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
   avatarImage: {
     width: 50,
     height: 50,
@@ -315,16 +402,6 @@ const styles = StyleSheet.create({
   friendInfo: {
     flex: 1,
     marginLeft: 14,
-  },
-  friendName: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 2,
-  },
-  friendType: {
-    fontSize: 13,
-    color: colors.textMuted,
   },
   friendActions: {
     alignItems: 'flex-end',
@@ -343,22 +420,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
-  playButton: {
-    color: colors.coral,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  requestCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 107, 107, 0.1)',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.3)',
-  },
   requestInfo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -368,17 +429,8 @@ const styles = StyleSheet.create({
     fontSize: 28,
     marginRight: 12,
   },
-  requestText: {
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
   requestName: {
     fontWeight: '600',
-  },
-  requestType: {
-    fontSize: 13,
-    color: colors.textMuted,
-    marginTop: 2,
   },
   requestActions: {
     flexDirection: 'row',
@@ -395,34 +447,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-  declineButton: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  declineButtonText: {
-    color: colors.textMuted,
-    fontSize: 14,
-  },
-  pendingInviteCard: {
-    backgroundColor: colors.cardDark,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  pendingInviteText: {
-    fontSize: 14,
-    color: colors.textMuted,
-  },
-  pendingInviteCode: {
-    fontSize: 13,
-    color: colors.coral,
-    fontFamily: 'monospace',
-  },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -431,19 +455,6 @@ const styles = StyleSheet.create({
   emptyEmoji: {
     fontSize: 64,
     marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: colors.textMuted,
-    textAlign: 'center',
-    paddingHorizontal: 40,
-    marginBottom: 24,
   },
   emptyButton: {
     backgroundColor: colors.coral,
