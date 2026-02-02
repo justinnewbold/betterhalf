@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
@@ -9,9 +9,10 @@ import { useThemeStore } from '../stores/themeStore';
 import { colors, getThemeColors } from '../constants/colors';
 
 export default function RootLayout() {
-  const { initialize, isInitialized, isLoading } = useAuthStore();
+  const { initialize, isInitialized } = useAuthStore();
   const { isDark, initialize: initializeTheme } = useThemeStore();
   const themeColors = getThemeColors(isDark);
+  const [isReady, setIsReady] = useState(false);
 
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_600SemiBold,
@@ -23,11 +24,36 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    initialize();
-    initializeTheme();
+    const init = async () => {
+      try {
+        // Initialize theme (non-blocking)
+        initializeTheme();
+        
+        // Initialize auth
+        await initialize();
+      } catch (error) {
+        console.error('[RootLayout] Init error:', error);
+      } finally {
+        // Always mark as ready after a timeout to prevent infinite loading
+        setIsReady(true);
+      }
+    };
+    
+    init();
+    
+    // Safety timeout - if initialization takes more than 5 seconds, show the app anyway
+    const timeout = setTimeout(() => {
+      if (!isReady) {
+        console.warn('[RootLayout] Initialization timeout, forcing ready state');
+        setIsReady(true);
+      }
+    }, 5000);
+    
+    return () => clearTimeout(timeout);
   }, []);
 
-  if (!fontsLoaded || !isInitialized) {
+  // Show loading while fonts load or auth initializes (with safety timeout)
+  if (!fontsLoaded || (!isInitialized && !isReady)) {
     return (
       <View style={[styles.loading, { backgroundColor: themeColors.background }]}>
         <ActivityIndicator size="large" color={colors.purple} />
