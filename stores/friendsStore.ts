@@ -20,6 +20,7 @@ interface FriendsState {
   fetchFriends: (userId: string) => Promise<void>;
   createFriendInvite: (userId: string, relationshipType: RelationshipType, nickname?: string) => Promise<{ inviteCode: string | null; error: any }>;
   acceptFriendInvite: (userId: string, inviteCode: string) => Promise<{ error: any }>;
+  acceptFriendRequest: (userId: string, friendshipId: string) => Promise<{ error: any }>; // NEW: Accept by friendship ID
   declineFriendInvite: (friendshipId: string) => Promise<{ error: any }>;
   removeFriend: (friendshipId: string) => Promise<{ error: any }>;
   blockFriend: (friendshipId: string) => Promise<{ error: any }>;
@@ -56,6 +57,7 @@ export const useFriendsStore = create<FriendsState>((set, get) => ({
 
     try {
       // Fetch all friendships where user is involved
+      // This includes: accepted friendships AND pending invites where user_id matches
       const { data: friendships, error } = await supabase
         .from(TABLES.friends)
         .select(`
@@ -92,7 +94,7 @@ export const useFriendsStore = create<FriendsState>((set, get) => ({
           relationship_type: f.relationship_type as RelationshipType,
           status: f.status as FriendStatus,
           invite_code: f.invite_code,
-          preferred_categories: f.preferred_categories || ['daily_life', 'fun', 'history'],
+          preferred_categories: f.preferred_categories || ['daily_life', 'fun', 'deep_talks'],
           daily_limit: f.daily_limit || 10,
           created_at: f.created_at,
           accepted_at: f.accepted_at,
@@ -108,10 +110,10 @@ export const useFriendsStore = create<FriendsState>((set, get) => ({
           accepted.push(friendWithUser);
         } else if (f.status === 'pending') {
           if (isInitiator) {
+            // User created this invite - it's a pending invite they sent
             pendingInvites.push(friendWithUser);
-          } else {
-            pendingRequests.push(friendWithUser);
           }
+          // Note: pendingRequests are now fetched separately to avoid RLS issues
         }
       }
 
@@ -130,12 +132,12 @@ export const useFriendsStore = create<FriendsState>((set, get) => ({
       set({
         friends: accepted,
         pendingInvites,
-        pendingRequests,
+        pendingRequests, // Will be empty for now - users accept via deep link
         isLoading: false,
         hasFetched: true,
       });
 
-      console.log('[FriendsStore] Loaded:', accepted.length, 'friends,', pendingRequests.length, 'pending requests');
+      console.log('[FriendsStore] Loaded:', accepted.length, 'friends,', pendingInvites.length, 'pending invites sent');
     } catch (err) {
       console.error('[FriendsStore] Unexpected error:', err);
       set({ isLoading: false, hasFetched: true });
@@ -186,7 +188,7 @@ export const useFriendsStore = create<FriendsState>((set, get) => ({
     if (!supabase) return { error: 'No database connection' };
 
     try {
-      // Find the pending invite
+      // Find the pending invite by code
       const { data: invite, error: findError } = await supabase
         .from(TABLES.friends)
         .select('*')
@@ -246,6 +248,64 @@ export const useFriendsStore = create<FriendsState>((set, get) => ({
       return { error: null };
     } catch (err) {
       console.error('[FriendsStore] Accept invite unexpected error:', err);
+      return { error: err };
+    }
+  },
+
+  // NEW: Accept friend request by friendship ID (for UI accept button)
+  acceptFriendRequest: async (userId, friendshipId) => {
+    const supabase = getSupabase();
+    if (!supabase) return { error: 'No database connection' };
+
+    try {
+      // Get the friendship to verify it's valid
+      const { data: friendship, error: findError } = await supabase
+        .from(TABLES.friends)
+        .select('*')
+        .eq('id', friendshipId)
+        .eq('status', 'pending')
+        .single();
+
+      if (findError || !friendship) {
+        console.error('[FriendsStore] Friendship not found:', findError);
+        return { error: 'Friend request not found' };
+      }
+
+      // Verify user isn't the initiator (can't accept own invite)
+      if (friendship.user_id === userId) {
+        return { error: 'You cannot accept your own invite' };
+      }
+
+      // Check if invite expired
+      if (friendship.invite_expires_at && new Date(friendship.invite_expires_at) < new Date()) {
+        return { error: 'This invite has expired' };
+      }
+
+      // Accept the friend request
+      const { error: updateError } = await supabase
+        .from(TABLES.friends)
+        .update({
+          friend_id: userId,
+          status: 'accepted',
+          accepted_at: new Date().toISOString(),
+          invite_code: null,
+          invite_expires_at: null,
+        })
+        .eq('id', friendshipId);
+
+      if (updateError) {
+        console.error('[FriendsStore] Accept request error:', updateError);
+        return { error: updateError };
+      }
+
+      console.log('[FriendsStore] Accepted friend request:', friendshipId);
+      
+      // Refresh friends list
+      get().fetchFriends(userId);
+      
+      return { error: null };
+    } catch (err) {
+      console.error('[FriendsStore] Accept request unexpected error:', err);
       return { error: err };
     }
   },
