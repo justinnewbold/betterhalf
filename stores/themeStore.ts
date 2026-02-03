@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, Appearance } from 'react-native';
 
@@ -11,49 +10,10 @@ interface ThemeState {
   isHydrated: boolean;
   setMode: (mode: ThemeMode) => void;
   toggleTheme: () => void;
-  initialize: () => void;
-  setHydrated: (hydrated: boolean) => void;
+  initialize: () => Promise<void>;
 }
 
-// Custom storage that works for both web and native with error handling
-const storage = {
-  getItem: async (name: string): Promise<string | null> => {
-    try {
-      if (Platform.OS === 'web') {
-        if (typeof window === 'undefined') return null;
-        return window.localStorage.getItem(name);
-      }
-      return await AsyncStorage.getItem(name);
-    } catch (error) {
-      console.warn('[ThemeStore] Error reading storage:', error);
-      return null;
-    }
-  },
-  setItem: async (name: string, value: string): Promise<void> => {
-    try {
-      if (Platform.OS === 'web') {
-        if (typeof window === 'undefined') return;
-        window.localStorage.setItem(name, value);
-        return;
-      }
-      await AsyncStorage.setItem(name, value);
-    } catch (error) {
-      console.warn('[ThemeStore] Error writing storage:', error);
-    }
-  },
-  removeItem: async (name: string): Promise<void> => {
-    try {
-      if (Platform.OS === 'web') {
-        if (typeof window === 'undefined') return;
-        window.localStorage.removeItem(name);
-        return;
-      }
-      await AsyncStorage.removeItem(name);
-    } catch (error) {
-      console.warn('[ThemeStore] Error removing from storage:', error);
-    }
-  },
-};
+const STORAGE_KEY = 'betterhalf-theme-mode';
 
 const getSystemTheme = (): boolean => {
   try {
@@ -65,78 +25,101 @@ const getSystemTheme = (): boolean => {
   }
 };
 
-export const useThemeStore = create<ThemeState>()(
-  persist(
-    (set, get) => ({
-      mode: 'dark' as ThemeMode, // Default to dark for existing users
-      isDark: true,
-      isHydrated: false,
+const saveThemeMode = async (mode: ThemeMode): Promise<void> => {
+  try {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(STORAGE_KEY, mode);
+      }
+    } else {
+      await AsyncStorage.setItem(STORAGE_KEY, mode);
+    }
+  } catch (error) {
+    console.warn('[ThemeStore] Error saving theme:', error);
+  }
+};
 
-      setHydrated: (hydrated: boolean) => set({ isHydrated: hydrated }),
+const loadThemeMode = async (): Promise<ThemeMode | null> => {
+  try {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        return window.localStorage.getItem(STORAGE_KEY) as ThemeMode | null;
+      }
+      return null;
+    }
+    return await AsyncStorage.getItem(STORAGE_KEY) as ThemeMode | null;
+  } catch (error) {
+    console.warn('[ThemeStore] Error loading theme:', error);
+    return null;
+  }
+};
 
-      setMode: (mode: ThemeMode) => {
+export const useThemeStore = create<ThemeState>((set, get) => ({
+  mode: 'dark' as ThemeMode, // Default to dark
+  isDark: true,
+  isHydrated: false,
+
+  setMode: (mode: ThemeMode) => {
+    let isDark: boolean;
+    
+    if (mode === 'system') {
+      isDark = getSystemTheme();
+    } else {
+      isDark = mode === 'dark';
+    }
+    
+    set({ mode, isDark });
+    saveThemeMode(mode);
+  },
+
+  toggleTheme: () => {
+    const { mode, isDark } = get();
+    
+    let newMode: ThemeMode;
+    let newIsDark: boolean;
+    
+    if (mode === 'system') {
+      // If on system, switch to opposite of current
+      newMode = isDark ? 'light' : 'dark';
+      newIsDark = !isDark;
+    } else {
+      // Toggle between light and dark
+      newMode = mode === 'dark' ? 'light' : 'dark';
+      newIsDark = newMode === 'dark';
+    }
+    
+    set({ mode: newMode, isDark: newIsDark });
+    saveThemeMode(newMode);
+  },
+
+  initialize: async () => {
+    try {
+      // Load saved theme mode
+      const savedMode = await loadThemeMode();
+      
+      if (savedMode) {
         let isDark: boolean;
-        
-        if (mode === 'system') {
+        if (savedMode === 'system') {
           isDark = getSystemTheme();
         } else {
-          isDark = mode === 'dark';
+          isDark = savedMode === 'dark';
         }
-        
-        set({ mode, isDark });
-      },
+        set({ mode: savedMode, isDark, isHydrated: true });
+      } else {
+        // No saved preference, default to dark
+        set({ mode: 'dark', isDark: true, isHydrated: true });
+      }
 
-      toggleTheme: () => {
-        const { mode, isDark } = get();
-        
+      // Listen for system theme changes
+      Appearance.addChangeListener(({ colorScheme }) => {
+        const { mode } = get();
         if (mode === 'system') {
-          // If on system, switch to opposite of current
-          set({ mode: isDark ? 'light' : 'dark', isDark: !isDark });
-        } else {
-          // Toggle between light and dark
-          const newMode = mode === 'dark' ? 'light' : 'dark';
-          set({ mode: newMode, isDark: newMode === 'dark' });
+          set({ isDark: colorScheme === 'dark' });
         }
-      },
-
-      initialize: () => {
-        try {
-          const { mode } = get();
-          
-          if (mode === 'system') {
-            set({ isDark: getSystemTheme() });
-          }
-
-          // Listen for system theme changes
-          const subscription = Appearance.addChangeListener(({ colorScheme }) => {
-            const { mode } = get();
-            if (mode === 'system') {
-              set({ isDark: colorScheme === 'dark' });
-            }
-          });
-
-          return () => subscription.remove();
-        } catch (error) {
-          console.warn('[ThemeStore] Error in initialize:', error);
-        }
-      },
-    }),
-    {
-      name: 'betterhalf-theme',
-      storage: createJSONStorage(() => storage),
-      partialize: (state) => ({ mode: state.mode }),
-      onRehydrateStorage: () => (state) => {
-        // Mark hydration complete
-        if (state) {
-          state.setHydrated(true);
-          // Update isDark based on loaded mode
-          if (state.mode === 'system') {
-            state.isDark = getSystemTheme();
-          } else {
-            state.isDark = state.mode === 'dark';
-          }
-        }
-      },
+      });
+    } catch (error) {
+      console.warn('[ThemeStore] Error in initialize:', error);
+      set({ isHydrated: true }); // Mark as hydrated even on error
     }
-  )
-);
+  },
+}));
