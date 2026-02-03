@@ -5,38 +5,54 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Custom storage adapter that works for both web and native
-const ExpoStorage = {
-  getItem: async (key: string): Promise<string | null> => {
-    if (Platform.OS === 'web') {
-      if (typeof window === 'undefined') return null;
+// Web storage adapter - MUST be synchronous for session restoration to work
+const WebStorage = {
+  getItem: (key: string): string | null => {
+    if (typeof window === 'undefined') return null;
+    try {
       return window.localStorage.getItem(key);
+    } catch {
+      return null;
     }
+  },
+  setItem: (key: string, value: string): void => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(key, value);
+    } catch {
+      // Ignore storage errors
+    }
+  },
+  removeItem: (key: string): void => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // Ignore storage errors
+    }
+  },
+};
+
+// Native storage adapter (async is fine for native)
+const NativeStorage = {
+  getItem: async (key: string): Promise<string | null> => {
     return AsyncStorage.getItem(key);
   },
   setItem: async (key: string, value: string): Promise<void> => {
-    if (Platform.OS === 'web') {
-      if (typeof window === 'undefined') return;
-      window.localStorage.setItem(key, value);
-      return;
-    }
     await AsyncStorage.setItem(key, value);
   },
   removeItem: async (key: string): Promise<void> => {
-    if (Platform.OS === 'web') {
-      if (typeof window === 'undefined') return;
-      window.localStorage.removeItem(key);
-      return;
-    }
     await AsyncStorage.removeItem(key);
   },
 };
 
 // Singleton Supabase client
 let _supabase: SupabaseClient | null = null;
+let _isCreating = false;
 
 const createSupabaseClient = (): SupabaseClient | null => {
   if (_supabase) return _supabase;
+  if (_isCreating) return null;
   
   if (!supabaseUrl || !supabaseAnonKey) {
     console.warn('[Supabase] Missing configuration');
@@ -48,23 +64,31 @@ const createSupabaseClient = (): SupabaseClient | null => {
     return null;
   }
   
+  _isCreating = true;
+  
   try {
     console.log('[Supabase] Creating client, platform:', Platform.OS);
     
+    // Use synchronous storage for web, async for native
+    const storage = Platform.OS === 'web' ? WebStorage : NativeStorage;
+    
     _supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        storage: ExpoStorage,
+        storage: storage as any,
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: Platform.OS === 'web',
+        flowType: 'pkce',
       },
     });
     
-    console.log('[Supabase] Client created');
+    console.log('[Supabase] Client created successfully');
     return _supabase;
   } catch (error) {
     console.error('[Supabase] Failed to create client:', error);
     return null;
+  } finally {
+    _isCreating = false;
   }
 };
 
