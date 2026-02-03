@@ -3,12 +3,12 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { QuestionCard } from '../../../components/game/QuestionCard';
-import { WaitingAnimation } from '../../../components/game/WaitingAnimation';
-import { AnswerReveal } from '../../../components/game/AnswerReveal';
-import { QuestionSkeleton } from '../../../components/ui/Skeleton';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { SyncScoreRing } from '../../../components/game/SyncScoreRing';
+import { WaitingAnimation } from '../../../components/game/WaitingAnimation';
+import { AnswerReveal } from '../../../components/game/AnswerReveal';
+import { QuestionSkeleton } from '../../../components/ui/Skeleton';
 import { useAuthStore } from '../../../stores/authStore';
 import { useCoupleStore } from '../../../stores/coupleStore';
 import { usePresenceStore } from '../../../stores/presenceStore';
@@ -18,6 +18,7 @@ import { getSupabase, TABLES, QuestionCategory } from '../../../lib/supabase';
 import { colors, getThemeColors } from '../../../constants/colors';
 import { Confetti, CelebrationBurst } from '../../../components/ui/Confetti';
 import { typography, fontFamilies } from '../../../constants/typography';
+import { hapticSuccess, hapticError } from '../../../lib/haptics';
 
 type GamePhase = 'loading' | 'question' | 'waiting' | 'reveal' | 'results' | 'already_played' | 'error';
 
@@ -31,375 +32,332 @@ interface Question {
 
 interface GameSession {
   id: string;
-  couple_id: string;
   question_id: string;
-  user_a_answer: number | null;
-  user_b_answer: number | null;
+  game_date: string;
+  status: string;
+  initiator_answer: number | null;
+  partner_answer: number | null;
   is_match: boolean | null;
-  completed_at: string | null;
-  created_at: string;
 }
 
-export default function DailySync() {
+export default function DailySyncGame() {
   const { user } = useAuthStore();
-  const { couple, partnerProfile, streak: streakData, fetchCouple } = useCoupleStore();
-  const { updateMyState, partnerState, partnerCurrentScreen } = usePresenceStore();
+  const { couple, partner, loadCouple, refreshCoupleData } = useCoupleStore();
+  const { partnerState, partnerCurrentScreen, startTracking, stopTracking, setCurrentScreen } = usePresenceStore();
   const { isDark } = useThemeStore();
   const themeColors = getThemeColors(isDark);
   
   const [phase, setPhase] = useState<GamePhase>('loading');
   const [question, setQuestion] = useState<Question | null>(null);
   const [session, setSession] = useState<GameSession | null>(null);
-  const [selectedOption, setSelectedOption] = useState<number | undefined>();
-  const [partnerOption, setPartnerOption] = useState<number | undefined>();
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [partnerOption, setPartnerOption] = useState<number | null>(null);
   const [isMatch, setIsMatch] = useState(false);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [syncScore, setSyncScore] = useState(0);
+  const [errorMessage, setErrorMessage] = useState('');
   const [showConfetti, setShowConfetti] = useState(false);
   const [showBurst, setShowBurst] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [syncScore, setSyncScore] = useState(0);
-  const [todayStats, setTodayStats] = useState({ matched: 0, total: 1 });
+  const [revealAnimationComplete, setRevealAnimationComplete] = useState(false);
 
-  const connectionName = partnerProfile?.display_name || 'Your Person';
-  const isConnectionA = couple?.partner_a_id === user?.id;
+  const isInitiator = couple?.user1_id === user?.id;
+  const connectionName = partner?.nickname || partner?.display_name || 'Your Partner';
 
-  // Update presence when entering/leaving game
+  // Track presence
   useEffect(() => {
-    updateMyState('playing', 'daily');
+    if (couple?.id) {
+      startTracking(couple.id, 'daily');
+      setCurrentScreen('daily');
+    }
     return () => {
-      updateMyState('online', 'home');
+      stopTracking();
     };
-  }, []);
-
-  // Load or create today's game session
-  useEffect(() => {
-    loadTodaySession();
-  }, [couple?.id, user?.id]);
+  }, [couple?.id]);
 
   // Poll for partner's answer when waiting
   useEffect(() => {
     if (phase !== 'waiting' || !session?.id) return;
     
-    const interval = setInterval(async () => {
-      await checkPartnerAnswer();
-    }, 3000); // Check every 3 seconds
+    const pollInterval = setInterval(async () => {
+      try {
+        const supabase = getSupabase();
+        const { data, error } = await supabase
+          .from(TABLES.GAMES)
+          .select('*')
+          .eq('id', session.id)
+          .single();
+        
+        if (error) throw error;
+        
+        if (data) {
+          const myAnswer = isInitiator ? data.initiator_answer : data.partner_answer;
+          const theirAnswer = isInitiator ? data.partner_answer : data.initiator_answer;
+          
+          if (myAnswer !== null && theirAnswer !== null) {
+            // Both answered
+            setPartnerOption(theirAnswer);
+            setIsMatch(data.is_match ?? false);
+            setSession(data);
+            setPhase('reveal');
+            
+            // Haptic feedback
+            if (data.is_match) {
+              hapticSuccess();
+            } else {
+              hapticError();
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Poll error:', err);
+      }
+    }, 2000);
     
-    return () => clearInterval(interval);
-  }, [phase, session?.id]);
+    return () => clearInterval(pollInterval);
+  }, [phase, session?.id, isInitiator]);
 
-  const loadTodaySession = async () => {
-    const supabase = getSupabase();
-    if (!supabase || !couple?.id || !user?.id) {
+  // Load game on mount
+  useEffect(() => {
+    loadGameData();
+  }, [couple?.id]);
+
+  const loadGameData = async () => {
+    if (!couple?.id || !user?.id) {
       setPhase('error');
-      setError('Not connected');
+      setErrorMessage('Please set up your partner connection first.');
       return;
     }
 
+    setPhase('loading');
+    
     try {
-      // Get today's date (start of day in UTC)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayISO = today.toISOString();
-
-      // Check for existing session today
-      const { data: existingSession, error: sessionError } = await supabase
-        .from('betterhalf_daily_sessions')
-        .select('*, question:betterhalf_questions(*)')
+      const supabase = getSupabase();
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Check for existing game today
+      const { data: existingGame, error: gameError } = await supabase
+        .from(TABLES.GAMES)
+        .select('*, question:question_id(*)')
         .eq('couple_id', couple.id)
-        .gte('created_at', todayISO)
-        .maybeSingle();
-
-      if (sessionError && sessionError.code !== 'PGRST116') {
-        console.error('[DailySync] Session error:', sessionError);
-        throw sessionError;
-      }
-
-      if (existingSession) {
-        console.log('[DailySync] Found existing session:', existingSession.id);
-        setSession(existingSession);
-        setQuestion(existingSession.question);
+        .eq('game_date', today)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (existingGame && !gameError) {
+        setSession(existingGame);
+        setQuestion(existingGame.question);
         
-        // Determine current state based on answers
-        const myAnswer = isConnectionA ? existingSession.user_a_answer : existingSession.user_b_answer;
-        const theirAnswer = isConnectionA ? existingSession.user_b_answer : existingSession.user_a_answer;
+        const myAnswer = isInitiator ? existingGame.initiator_answer : existingGame.partner_answer;
+        const theirAnswer = isInitiator ? existingGame.partner_answer : existingGame.initiator_answer;
         
-        if (existingSession.completed_at) {
-          // Game already completed - show results
-          setSelectedOption(myAnswer ?? undefined);
-          setPartnerOption(theirAnswer ?? undefined);
-          setIsMatch(existingSession.is_match ?? false);
-          setPhase('already_played');
-        } else if (myAnswer !== null && theirAnswer !== null) {
-          // Both answered - show reveal
+        if (existingGame.status === 'completed') {
+          // Already played
           setSelectedOption(myAnswer);
           setPartnerOption(theirAnswer);
-          setIsMatch(myAnswer === theirAnswer);
+          setIsMatch(existingGame.is_match ?? false);
+          setPhase('already_played');
+        } else if (myAnswer !== null && theirAnswer !== null) {
+          // Both answered
+          setSelectedOption(myAnswer);
+          setPartnerOption(theirAnswer);
+          setIsMatch(existingGame.is_match ?? false);
           setPhase('reveal');
         } else if (myAnswer !== null) {
           // I answered, waiting for partner
           setSelectedOption(myAnswer);
           setPhase('waiting');
+        } else if (theirAnswer !== null) {
+          // Partner answered, my turn
+          setPhase('question');
         } else {
-          // Haven't answered yet
+          // No one answered yet
           setPhase('question');
         }
       } else {
-        // Create new session with a random question
-        console.log('[DailySync] Creating new session');
-        await createNewSession();
+        // Create new game
+        await createNewGame();
       }
-    } catch (err: any) {
-      console.error('[DailySync] Error:', err);
-      setError(err.message || 'Failed to load game');
+      
+      // Load streak data
+      await loadStreakData();
+      
+    } catch (err) {
+      console.error('Load game error:', err);
       setPhase('error');
+      setErrorMessage('Failed to load game. Please try again.');
     }
   };
 
-  const createNewSession = async () => {
-    const supabase = getSupabase();
-    if (!supabase || !couple?.id) return;
-
+  const createNewGame = async () => {
+    if (!couple?.id) return;
+    
     try {
-      // Get couple's preferred categories (default to all if not set)
-      const preferredCategories = couple.preferred_categories as QuestionCategory[] | null;
+      const supabase = getSupabase();
       
-      // Build query for questions
-      let query = supabase
-        .from(TABLES.questions)
+      // Get preferred categories
+      const categories = couple.preferred_categories || ['daily_life', 'heart', 'fun', 'history', 'deep_talks'];
+      
+      // Fetch random question from preferred categories
+      const { data: questions, error: qError } = await supabase
+        .from(TABLES.QUESTIONS)
         .select('*')
+        .in('category', categories)
+        .eq('for_couples', true)
         .eq('is_active', true);
-
-      // Filter by preferred categories if set
-      if (preferredCategories && preferredCategories.length > 0) {
-        console.log('[DailySync] Filtering by categories:', preferredCategories);
-        query = query.in('category', preferredCategories);
+      
+      if (qError || !questions?.length) {
+        throw new Error('No questions available');
       }
-
-      const { data: questions, error: qError } = await query.limit(50);
-
-      if (qError) throw qError;
-      if (!questions || questions.length === 0) {
-        setError('No questions available for selected categories');
-        setPhase('error');
-        return;
-      }
-
+      
       // Pick random question
       const randomQuestion = questions[Math.floor(Math.random() * questions.length)];
-      console.log('[DailySync] Selected question from category:', randomQuestion.category);
       
-      // Create session
-      const { data: newSession, error: createError } = await supabase
-        .from('betterhalf_daily_sessions')
+      // Create game session
+      const today = new Date().toISOString().split('T')[0];
+      const { data: newGame, error: createError } = await supabase
+        .from(TABLES.GAMES)
         .insert({
           couple_id: couple.id,
           question_id: randomQuestion.id,
+          game_date: today,
+          status: 'waiting_both',
         })
-        .select('*, question:betterhalf_questions(*)')
+        .select('*, question:question_id(*)')
         .single();
-
+      
       if (createError) throw createError;
-
-      console.log('[DailySync] Created session:', newSession.id);
-      setSession(newSession);
-      setQuestion(newSession.question);
+      
+      setSession(newGame);
+      setQuestion(newGame.question);
       setPhase('question');
-    } catch (err: any) {
-      console.error('[DailySync] Create session error:', err);
-      setError(err.message || 'Failed to create game');
+      
+    } catch (err) {
+      console.error('Create game error:', err);
       setPhase('error');
+      setErrorMessage('Failed to create game. Please try again.');
     }
   };
 
-  const handleSelectOption = (index: number) => {
-    setSelectedOption(index);
+  const loadStreakData = async () => {
+    if (!couple?.id) return;
+    
+    try {
+      await refreshCoupleData();
+      setCurrentStreak(couple?.current_streak || 0);
+      setSyncScore(couple?.sync_score || 0);
+    } catch (err) {
+      console.error('Load streak error:', err);
+    }
   };
 
-  const handleLockIn = async () => {
-    if (selectedOption === undefined || !session?.id) return;
+  const handleAnswer = async (optionIndex: number) => {
+    if (!session?.id || selectedOption !== null) return;
     
-    const supabase = getSupabase();
-    if (!supabase) return;
-
+    setSelectedOption(optionIndex);
+    
     try {
-      const updateField = isConnectionA ? 'user_a_answer' : 'user_b_answer';
+      const supabase = getSupabase();
+      const answerField = isInitiator ? 'initiator_answer' : 'partner_answer';
       
-      const { data: updated, error } = await supabase
-        .from('betterhalf_daily_sessions')
-        .update({ [updateField]: selectedOption })
+      const { data: updatedGame, error } = await supabase
+        .from(TABLES.GAMES)
+        .update({ 
+          [answerField]: optionIndex,
+          [`${answerField.replace('_answer', '_answered_at')}`]: new Date().toISOString(),
+        })
         .eq('id', session.id)
-        .select()
+        .select('*')
         .single();
-
+      
       if (error) throw error;
-
-      setSession(updated);
       
       // Check if partner already answered
-      const theirAnswer = isConnectionA ? updated.user_b_answer : updated.user_a_answer;
+      const theirAnswer = isInitiator ? updatedGame.partner_answer : updatedGame.initiator_answer;
       
       if (theirAnswer !== null) {
-        // Partner already answered - go to reveal
-        setPartnerOption(theirAnswer);
-        setIsMatch(selectedOption === theirAnswer);
-        await completeGame(selectedOption === theirAnswer);
-        setPhase('reveal');
-      } else {
-        // Wait for partner
-        setPhase('waiting');
-      }
-    } catch (err: any) {
-      console.error('[DailySync] Submit error:', err);
-      setError(err.message || 'Failed to submit answer');
-    }
-  };
-
-  const checkPartnerAnswer = async () => {
-    const supabase = getSupabase();
-    if (!supabase || !session?.id) return;
-
-    try {
-      const { data: updated, error } = await supabase
-        .from('betterhalf_daily_sessions')
-        .select()
-        .eq('id', session.id)
-        .single();
-
-      if (error) throw error;
-
-      const theirAnswer = isConnectionA ? updated.user_b_answer : updated.user_a_answer;
-      
-      if (theirAnswer !== null && selectedOption !== undefined) {
-        // Partner answered!
-        setPartnerOption(theirAnswer);
-        const matched = selectedOption === theirAnswer;
-        setIsMatch(matched);
-        await completeGame(matched);
-        setPhase('reveal');
-      }
-    } catch (err) {
-      console.error('[DailySync] Check partner error:', err);
-    }
-  };
-
-  const completeGame = async (matched: boolean) => {
-    const supabase = getSupabase();
-    if (!supabase || !session?.id || !couple?.id) return;
-
-    try {
-      // Mark session complete
-      await supabase
-        .from('betterhalf_daily_sessions')
-        .update({
-          is_match: matched,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', session.id);
-
-      // Update streak
-      const { data: currentStreak } = await supabase
-        .from(TABLES.streaks)
-        .select('*')
-        .eq('couple_id', couple.id)
-        .maybeSingle();
-
-      if (currentStreak) {
-        const lastPlayed = currentStreak.last_played_at ? new Date(currentStreak.last_played_at) : null;
-        const today = new Date();
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
+        // Calculate match
+        const matched = optionIndex === theirAnswer;
         
-        let newStreak = 1;
-        if (lastPlayed && lastPlayed.toDateString() === yesterday.toDateString()) {
-          // Played yesterday - continue streak
-          newStreak = currentStreak.current_streak + 1;
-        } else if (lastPlayed && lastPlayed.toDateString() === today.toDateString()) {
-          // Already played today
-          newStreak = currentStreak.current_streak;
+        // Update game status
+        const { data: finalGame, error: updateError } = await supabase
+          .from(TABLES.GAMES)
+          .update({
+            status: 'completed',
+            is_match: matched,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', session.id)
+          .select('*')
+          .single();
+        
+        if (updateError) throw updateError;
+        
+        setPartnerOption(theirAnswer);
+        setIsMatch(matched);
+        setSession(finalGame);
+        setPhase('reveal');
+        
+        // Haptic feedback
+        if (matched) {
+          hapticSuccess();
+        } else {
+          hapticError();
         }
         
-        await supabase
-          .from(TABLES.streaks)
-          .update({
-            current_streak: newStreak,
-            longest_streak: Math.max(newStreak, currentStreak.longest_streak),
-            last_played_at: new Date().toISOString(),
-          })
-          .eq('couple_id', couple.id);
+      } else {
+        setPhase('waiting');
       }
-
-      // Update couple stats
-      const { data: stats } = await supabase
-        .from(TABLES.couple_stats)
-        .select('*')
-        .eq('couple_id', couple.id)
-        .maybeSingle();
-
-      if (stats) {
-        await supabase
-          .from(TABLES.couple_stats)
-          .update({
-            total_games: stats.total_games + 1,
-            total_questions: stats.total_questions + 1,
-            total_matches: stats.total_matches + (matched ? 1 : 0),
-            sync_score: Math.round(((stats.total_matches + (matched ? 1 : 0)) / (stats.total_questions + 1)) * 100),
-          })
-          .eq('couple_id', couple.id);
-      }
-
-      // Refresh couple data
-      if (user?.id) {
-        await fetchCouple(user.id);
-      }
+      
     } catch (err) {
-      console.error('[DailySync] Complete game error:', err);
+      console.error('Submit answer error:', err);
+      setSelectedOption(null);
     }
   };
 
-  const handleContinue = () => {
-    if (phase === 'reveal') {
-      setPhase('results');
+  const handleContinue = async () => {
+    if (isMatch) {
+      setShowConfetti(true);
+      setShowBurst(true);
+      setTimeout(() => {
+        setShowConfetti(false);
+        setShowBurst(false);
+        setPhase('results');
+      }, 1500);
     } else {
-      router.back();
+      setPhase('results');
     }
   };
 
-  const handleClose = () => {
-    router.back();
+  const handleRevealComplete = useCallback(() => {
+    setRevealAnimationComplete(true);
+  }, []);
+
+  const handleFinish = () => {
+    router.replace('/(main)/(tabs)');
   };
 
-  // Calculate stats for results
-  const currentStreak = streakData?.current_streak || 0;
-
-  // Dynamic styles based on theme
+  // Dynamic styles
   const dynamicStyles = {
     container: {
       flex: 1,
       backgroundColor: themeColors.background,
     },
-    closeButton: {
-      fontSize: 20,
-      color: themeColors.textMuted,
-      padding: 4,
-    },
-    headerTitle: {
-      fontFamily: fontFamilies.bodySemiBold,
-      fontSize: 17,
-      color: themeColors.textPrimary,
-    },
-    progressText: {
-      ...typography.caption,
-      color: themeColors.textMuted,
-    },
-    progressBar: {
-      height: 4,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
-      borderRadius: 2,
-      marginBottom: 24,
-      overflow: 'hidden' as const,
-    },
     loadingText: {
       ...typography.body,
       color: themeColors.textMuted,
+      marginTop: 16,
+    },
+    questionLabel: {
+      ...typography.caption,
+      color: themeColors.purple,
+      textAlign: 'center' as const,
+      marginBottom: 8,
+    },
+    errorTitle: {
+      fontFamily: fontFamilies.display,
+      fontSize: 24,
+      color: themeColors.textPrimary,
       marginTop: 16,
     },
     errorText: {
@@ -407,26 +365,6 @@ export default function DailySync() {
       color: themeColors.textMuted,
       marginBottom: 24,
       textAlign: 'center' as const,
-    },
-    waitingIcon: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      backgroundColor: isDark ? 'rgba(168,85,247,0.15)' : 'rgba(147,51,234,0.12)',
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      marginBottom: 24,
-    },
-    waitingTitle: {
-      fontFamily: fontFamilies.display,
-      fontSize: 24,
-      color: themeColors.textPrimary,
-      marginBottom: 8,
-    },
-    waitingSubtitle: {
-      ...typography.body,
-      color: themeColors.textMuted,
-      marginBottom: 40,
     },
     yourAnswerLabel: {
       ...typography.caption,
@@ -446,26 +384,6 @@ export default function DailySync() {
       ...typography.body,
       color: themeColors.textMuted,
       marginBottom: 16,
-      textAlign: 'center' as const,
-    },
-    answerBox: {
-      flex: 1,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-      borderRadius: 12,
-      padding: 14,
-      alignItems: 'center' as const,
-      borderWidth: 2,
-      borderColor: themeColors.coral,
-    },
-    answerName: {
-      ...typography.caption,
-      color: themeColors.textMuted,
-      marginBottom: 6,
-    },
-    answerValue: {
-      fontFamily: fontFamilies.bodySemiBold,
-      fontSize: 14,
-      color: themeColors.textPrimary,
       textAlign: 'center' as const,
     },
     resultsLabel: {
@@ -491,79 +409,24 @@ export default function DailySync() {
     },
   };
 
+  // Loading phase - use skeleton
   if (phase === 'loading') {
     return (
       <SafeAreaView style={dynamicStyles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleClose}>
-            <Text style={dynamicStyles.closeButton}>✕</Text>
-          </TouchableOpacity>
-          <Text style={dynamicStyles.headerTitle}>Daily Sync</Text>
-          <View style={{ width: 24 }} />
-        </View>
         <QuestionSkeleton />
       </SafeAreaView>
     );
   }
 
+  // Error phase
   if (phase === 'error') {
     return (
       <SafeAreaView style={dynamicStyles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleClose}>
-            <Text style={dynamicStyles.closeButton}>✕</Text>
-          </TouchableOpacity>
-          <Text style={dynamicStyles.headerTitle}>Daily Sync</Text>
-          <View style={{ width: 24 }} />
-        </View>
         <View style={styles.centerContent}>
           <Text style={styles.errorEmoji}>😕</Text>
-          <Text style={dynamicStyles.errorText}>{error || 'Something went wrong'}</Text>
-          <Button title="Try Again" onPress={loadTodaySession} />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (phase === 'already_played') {
-    return (
-      <SafeAreaView style={dynamicStyles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleClose}>
-            <Text style={dynamicStyles.closeButton}>✕</Text>
-          </TouchableOpacity>
-          <Text style={dynamicStyles.headerTitle}>Daily Sync</Text>
-          <View style={{ width: 24 }} />
-        </View>
-        <View style={styles.centerContent}>
-          <Text style={dynamicStyles.resultsLabel}>TODAY'S SYNC COMPLETE</Text>
-          <Text style={dynamicStyles.resultsTitle}>
-            {isMatch ? 'You matched! 🎉' : 'Come back tomorrow! 💕'}
-          </Text>
-          
-          {question && (
-            <Card style={styles.revealCard}>
-              <Text style={dynamicStyles.revealQuestion}>{question.question}</Text>
-              <View style={styles.revealAnswers}>
-                <View style={[dynamicStyles.answerBox, isMatch && { borderColor: themeColors.success }]}>
-                  <Text style={dynamicStyles.answerName}>YOU</Text>
-                  <Text style={dynamicStyles.answerValue}>
-                    {question.options[selectedOption ?? 0]}
-                  </Text>
-                </View>
-                <View style={[dynamicStyles.answerBox, isMatch && { borderColor: themeColors.success }]}>
-                  <Text style={dynamicStyles.answerName}>{connectionName.toUpperCase()}</Text>
-                  <Text style={dynamicStyles.answerValue}>
-                    {question.options[partnerOption ?? 0]}
-                  </Text>
-                </View>
-              </View>
-            </Card>
-          )}
-
-          <View style={styles.footer}>
-            <Button title="Back to Home" onPress={handleClose} fullWidth />
-          </View>
+          <Text style={dynamicStyles.errorTitle}>Oops!</Text>
+          <Text style={dynamicStyles.errorText}>{errorMessage}</Text>
+          <Button title="Go Back" onPress={() => router.back()} />
         </View>
       </SafeAreaView>
     );
@@ -571,52 +434,33 @@ export default function DailySync() {
 
   return (
     <SafeAreaView style={dynamicStyles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleClose}>
-          <Text style={dynamicStyles.closeButton}>✕</Text>
-        </TouchableOpacity>
-        <Text style={dynamicStyles.headerTitle}>Daily Sync</Text>
-        <View style={{ width: 24 }} />
-      </View>
-
+      {showConfetti && <Confetti />}
+      {showBurst && <CelebrationBurst />}
+      
       {/* Question Phase */}
       {phase === 'question' && question && (
-        <View style={styles.content}>
-          <View style={styles.progressInfo}>
-            <Text style={dynamicStyles.progressText}>Today's Question</Text>
-          </View>
-          <View style={dynamicStyles.progressBar}>
-            <View style={[styles.progressFill, { backgroundColor: themeColors.purpleLight }]} />
-          </View>
-
+        <View style={styles.gameContent}>
+          <Text style={dynamicStyles.questionLabel}>DAILY SYNC</Text>
           <QuestionCard
-            question={question}
-            selectedIndex={selectedOption}
-            onSelectOption={handleSelectOption}
+            question={question.question}
+            options={question.options}
+            selectedOption={selectedOption}
+            onSelectOption={handleAnswer}
+            category={question.category as QuestionCategory}
           />
-
-          <View style={styles.footer}>
-            <Button
-              title="Lock In Answer"
-              onPress={handleLockIn}
-              disabled={selectedOption === undefined}
-              fullWidth
-            />
-          </View>
         </View>
       )}
 
-      {/* Waiting Phase */}
+      {/* Waiting Phase - Use new WaitingAnimation */}
       {phase === 'waiting' && question && (
         <View style={styles.centerContent}>
-          <WaitingAnimation 
+          <WaitingAnimation
             partnerName={connectionName}
             isPartnerOnline={partnerState === 'online' || partnerState === 'playing'}
             isPartnerPlaying={partnerState === 'playing' && partnerCurrentScreen === 'daily'}
           />
           
-          <Card style={styles.yourAnswerCard} variant="elevated">
+          <Card style={styles.yourAnswerCard} variant="elevated" padding="medium">
             <Text style={dynamicStyles.yourAnswerLabel}>YOUR ANSWER</Text>
             <Text style={dynamicStyles.yourAnswerText}>
               {question.options[selectedOption ?? 0]}
@@ -625,7 +469,7 @@ export default function DailySync() {
         </View>
       )}
 
-      {/* Reveal Phase */}
+      {/* Reveal Phase - Use new AnswerReveal */}
       {phase === 'reveal' && question && (
         <View style={styles.centerContent}>
           <AnswerReveal
@@ -634,15 +478,14 @@ export default function DailySync() {
             partnerAnswer={question.options[partnerOption ?? 0]}
             partnerName={connectionName}
             isMatch={isMatch}
+            onAnimationComplete={handleRevealComplete}
           />
 
-          <Text style={[styles.pointsText, { color: isMatch ? themeColors.success : themeColors.textMuted }]}>
-            {isMatch ? '+10 points' : 'Time for a conversation? 😏'}
-          </Text>
-
-          <View style={styles.footer}>
-            <Button title="Continue" onPress={handleContinue} fullWidth />
-          </View>
+          {revealAnimationComplete && (
+            <View style={styles.footer}>
+              <Button title="Continue" onPress={handleContinue} fullWidth />
+            </View>
+          )}
         </View>
       )}
 
@@ -654,114 +497,87 @@ export default function DailySync() {
             {isMatch ? 'Nice work! 🎉' : 'Better luck tomorrow! 💕'}
           </Text>
 
-          <Card style={styles.resultsCard}>
+          <Card style={styles.resultsCard} variant="elevated" padding="large">
             <View style={styles.resultsRow}>
               <View style={styles.resultItem}>
                 <Text style={dynamicStyles.resultLabel}>STREAK</Text>
                 <Text style={dynamicStyles.resultValue}>🔥 {currentStreak}</Text>
               </View>
               <View style={styles.resultItem}>
-                <Text style={dynamicStyles.resultLabel}>MATCHED</Text>
-                <Text style={dynamicStyles.resultValue}>{isMatch ? '1/1' : '0/1'}</Text>
-              </View>
-              <View style={styles.resultItem}>
-                <Text style={dynamicStyles.resultLabel}>POINTS</Text>
-                <Text style={dynamicStyles.resultValue}>{isMatch ? '+10' : '+0'}</Text>
+                <Text style={dynamicStyles.resultLabel}>SYNC SCORE</Text>
+                <SyncScoreRing score={syncScore} size={60} />
               </View>
             </View>
           </Card>
 
           <View style={styles.footer}>
-            <Button title="Back to Home" onPress={handleClose} fullWidth />
+            <Button title="Done" onPress={handleFinish} fullWidth />
           </View>
         </View>
       )}
-      {/* Celebration Animations */}
-      {showConfetti && (
-        <Confetti 
-          count={60} 
-          duration={3500}
-          onComplete={() => setShowConfetti(false)}
-        />
+
+      {/* Already Played Phase */}
+      {phase === 'already_played' && question && (
+        <View style={styles.centerContent}>
+          <Text style={dynamicStyles.resultsLabel}>ALREADY PLAYED TODAY</Text>
+          <Text style={dynamicStyles.resultsTitle}>
+            {isMatch ? 'You matched! ✨' : 'You had different answers 💭'}
+          </Text>
+
+          <AnswerReveal
+            question={question.question}
+            yourAnswer={question.options[selectedOption ?? 0]}
+            partnerAnswer={question.options[partnerOption ?? 0]}
+            partnerName={connectionName}
+            isMatch={isMatch}
+          />
+
+          <View style={styles.footer}>
+            <Button title="Back to Home" onPress={handleFinish} fullWidth />
+          </View>
+        </View>
       )}
-      <CelebrationBurst show={showBurst} color={isMatch ? '#4ADE80' : '#C084FC'} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  progressInfo: {
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    width: '100%',
-    borderRadius: 2,
-  },
-  footer: {
-    marginTop: 'auto',
-    paddingBottom: 20,
-  },
   centerContent: {
     flex: 1,
-    paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 20,
+  },
+  gameContent: {
+    flex: 1,
+    padding: 20,
   },
   errorEmoji: {
-    fontSize: 56,
-    marginBottom: 16,
-  },
-  waitingEmoji: {
-    fontSize: 48,
+    fontSize: 64,
   },
   yourAnswerCard: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  matchIndicator: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  matchEmoji: {
-    fontSize: 56,
-    marginBottom: 12,
-  },
-  revealCard: {
     width: '100%',
+    marginTop: 24,
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  revealAnswers: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  pointsText: {
-    ...typography.body,
-    marginBottom: 40,
   },
   resultsCard: {
     width: '100%',
-    marginTop: 24,
-    marginBottom: 40,
   },
   resultsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    alignItems: 'center',
   },
   resultItem: {
     alignItems: 'center',
+  },
+  footer: {
+    width: '100%',
+    marginTop: 32,
+  },
+  pointsText: {
+    fontFamily: fontFamilies.bodySemiBold,
+    fontSize: 16,
+    marginTop: 16,
   },
 });
