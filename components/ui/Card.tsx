@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useThemeStore } from '../../stores/themeStore';
 import { getThemeColors } from '../../constants/colors';
@@ -7,12 +7,22 @@ import { getThemeColors } from '../../constants/colors';
 interface CardProps {
   children: React.ReactNode;
   style?: ViewStyle | ViewStyle[];
-  variant?: 'default' | 'gradient' | 'success' | 'error';
+  variant?: 'default' | 'gradient' | 'success' | 'error' | 'elevated';
+  padding?: 'none' | 'small' | 'medium' | 'large';
 }
 
-export function Card({ children, style, variant = 'default' }: CardProps) {
+const paddingValues = {
+  none: 0,
+  small: 12,
+  medium: 16,
+  large: 24,
+};
+
+export function Card({ children, style, variant = 'default', padding = 'medium' }: CardProps) {
   const { isDark } = useThemeStore();
   const themeColors = getThemeColors(isDark);
+
+  const basePadding = paddingValues[padding];
 
   if (variant === 'gradient') {
     return (
@@ -26,7 +36,7 @@ export function Card({ children, style, variant = 'default' }: CardProps) {
         style={[
           styles.card, 
           styles.gradientBorder, 
-          { borderRadius: 16, padding: 16 },
+          { borderRadius: 16, padding: basePadding },
           style
         ]}
       >
@@ -38,12 +48,32 @@ export function Card({ children, style, variant = 'default' }: CardProps) {
   const baseStyle = {
     backgroundColor: themeColors.cardBackground,
     borderColor: themeColors.cardBorder,
+    padding: basePadding,
   };
 
-  const variantStyles = {
-    default: [styles.card, baseStyle],
-    success: [styles.card, baseStyle, styles.successCard],
-    error: [styles.card, baseStyle, styles.errorCard],
+  // iOS-style elevated card with subtle shadow
+  const elevatedStyle = Platform.select({
+    ios: {
+      shadowColor: isDark ? '#000' : '#666',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDark ? 0.4 : 0.12,
+      shadowRadius: 12,
+    },
+    android: {
+      elevation: 6,
+    },
+    web: {
+      boxShadow: isDark 
+        ? '0 4px 20px rgba(0,0,0,0.4)' 
+        : '0 4px 20px rgba(0,0,0,0.08)',
+    },
+  });
+
+  const variantStyles: Record<string, ViewStyle[]> = {
+    default: [styles.card, baseStyle as ViewStyle],
+    elevated: [styles.card, baseStyle as ViewStyle, elevatedStyle as ViewStyle],
+    success: [styles.card, baseStyle as ViewStyle, styles.successCard],
+    error: [styles.card, baseStyle as ViewStyle, styles.errorCard],
   };
 
   return (
@@ -56,8 +86,9 @@ export function Card({ children, style, variant = 'default' }: CardProps) {
 const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
-    padding: 16,
     borderWidth: 1,
+    // Subtle transition feel
+    overflow: 'hidden',
   },
   gradientBorder: {
     borderWidth: 0,
