@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,14 +14,35 @@ import { useNotificationStore } from '../../../stores/notificationStore';
 import { useThemeStore } from '../../../stores/themeStore';
 import { colors, getThemeColors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
+import { hapticLight } from '../../../lib/haptics';
 
 export default function Home() {
   const { user } = useAuthStore();
-  const { couple, partnerProfile, stats, streak: streakData } = useCoupleStore();
+  const { couple, partnerProfile, stats, streak: streakData, refreshCoupleData, loadStats } = useCoupleStore();
   const { initializePresence, updateMyState, isConnected } = usePresenceStore();
   const { registerForPushNotifications, isPermissionGranted } = useNotificationStore();
   const { isDark } = useThemeStore();
   const themeColors = getThemeColors(isDark);
+  
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    hapticLight();
+    
+    try {
+      // Refresh couple data and stats
+      await Promise.all([
+        refreshCoupleData?.(),
+        loadStats?.(),
+      ]);
+    } catch (err) {
+      console.error('Refresh error:', err);
+    }
+    
+    setRefreshing(false);
+  }, [refreshCoupleData, loadStats]);
 
   // Auto-register for notifications (one-time check)
   useEffect(() => {
@@ -69,7 +90,21 @@ export default function Home() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <ScrollView 
+        style={styles.scroll} 
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={themeColors.purple}
+            colors={[themeColors.purple]}
+            progressBackgroundColor={themeColors.cardBackground}
+            style={Platform.OS === 'ios' ? { backgroundColor: 'transparent' } : undefined}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -104,7 +139,7 @@ export default function Home() {
         </View>
 
         {/* Daily Sync Card */}
-        <Card style={styles.card}>
+        <Card style={styles.card} variant="elevated" padding="large">
           <Text style={[styles.cardLabel, { color: themeColors.textMuted }]}>TODAY'S SYNC</Text>
           <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]}>Ready to play today's question?</Text>
           <Text style={[styles.cardDescription, { color: themeColors.textSecondary }]}>
@@ -114,7 +149,7 @@ export default function Home() {
         </Card>
 
         {/* Date Night Card */}
-        <Card style={styles.card}>
+        <Card style={styles.card} variant="elevated" padding="large">
           <Text style={[styles.cardLabel, { color: themeColors.textMuted }]}>DATE NIGHT</Text>
           <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]}>10 questions, deeper connection</Text>
           <Text style={[styles.cardDescription, { color: themeColors.textSecondary }]}>
@@ -163,56 +198,67 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    padding: 20,
+    paddingBottom: 100, // Extra padding for tab bar
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 24,
-    marginTop: 8,
   },
   greeting: {
-    ...typography.bodySmall,
+    fontFamily: fontFamilies.body,
+    fontSize: 14,
+    letterSpacing: 0.3,
   },
   names: {
-    fontFamily: fontFamilies.bodySemiBold,
-    fontSize: 20,
+    fontFamily: fontFamilies.display,
+    fontSize: 26,
+    marginTop: 4,
+    letterSpacing: -0.3,
   },
   partnerStatusRow: {
-    marginTop: 4,
+    marginTop: 8,
   },
   streakBadge: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 100,
+    borderRadius: 20,
   },
   streakText: {
-    ...typography.label,
+    fontFamily: fontFamilies.bodySemiBold,
+    fontSize: 14,
   },
   ringContainer: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginVertical: 20,
   },
   syncLabel: {
-    ...typography.caption,
-    marginTop: 8,
+    fontFamily: fontFamilies.body,
+    fontSize: 12,
+    letterSpacing: 1.5,
+    marginTop: 12,
   },
   card: {
     marginBottom: 16,
   },
   cardLabel: {
-    ...typography.captionBold,
+    fontFamily: fontFamilies.body,
+    fontSize: 11,
+    letterSpacing: 1.5,
     marginBottom: 8,
   },
   cardTitle: {
-    fontFamily: fontFamilies.bodySemiBold,
-    fontSize: 17,
-    marginBottom: 6,
+    fontFamily: fontFamilies.display,
+    fontSize: 20,
+    marginBottom: 8,
+    letterSpacing: -0.2,
   },
   cardDescription: {
-    ...typography.bodySmall,
+    fontFamily: fontFamilies.body,
+    fontSize: 14,
+    lineHeight: 20,
     marginBottom: 16,
   },
   quickStats: {
@@ -226,15 +272,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    fontFamily: fontFamilies.bodyBold,
+    fontFamily: fontFamilies.display,
     fontSize: 24,
     marginBottom: 4,
   },
   statLabel: {
-    ...typography.caption,
+    fontFamily: fontFamilies.body,
+    fontSize: 12,
   },
   statDivider: {
     width: 1,
-    marginHorizontal: 12,
+    height: '100%',
   },
 });
