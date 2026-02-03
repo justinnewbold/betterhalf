@@ -28,7 +28,7 @@ export default function FriendsScreen() {
     pendingInvites,
     isLoading, 
     fetchFriends,
-    acceptFriendInvite,
+    acceptFriendRequest, // Use new method for accepting by ID
     declineFriendInvite,
   } = useFriendsStore();
   
@@ -48,12 +48,15 @@ export default function FriendsScreen() {
     setRefreshing(false);
   };
 
+  // Fixed: Use acceptFriendRequest with friendship ID instead of invite code
   const handleAcceptInvite = async (friendshipId: string) => {
     if (!user?.id) return;
-    const friend = pendingRequests.find(r => r.id === friendshipId);
-    const { error } = await acceptFriendInvite(user.id, friend?.invite_code || '');
+    const { error } = await acceptFriendRequest(user.id, friendshipId);
     if (error) {
-      Alert.alert('Error', 'Could not accept invite. Please try again.');
+      const errorMsg = typeof error === 'string' ? error : 'Could not accept invite. Please try again.';
+      Alert.alert('Error', errorMsg);
+    } else {
+      Alert.alert('Success!', 'You are now connected!');
     }
   };
 
@@ -244,6 +247,7 @@ export default function FriendsScreen() {
   };
 
   const renderPendingRequest = (request: typeof pendingRequests[0]) => {
+    // For pending requests, the initiator_user is who sent the invite
     const senderName = request.friend_user?.display_name || 'Someone';
 
     return (
