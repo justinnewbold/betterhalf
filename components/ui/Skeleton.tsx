@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, ViewStyle } from 'react-native';
 import { useThemeStore } from '../../stores/themeStore';
-import { getThemeColors } from '../../constants/colors';
 
 interface SkeletonProps {
   width?: number | string;
@@ -78,9 +77,48 @@ export function QuestionSkeleton() {
   );
 }
 
+export function ProfileSkeleton() {
+  return (
+    <View style={skeletonStyles.profileContainer}>
+      <Skeleton width={100} height={100} borderRadius={50} style={{ marginBottom: 16 }} />
+      <Skeleton width={150} height={24} style={{ marginBottom: 8 }} />
+      <Skeleton width={100} height={16} />
+    </View>
+  );
+}
+
+export function CardSkeleton() {
+  return (
+    <View style={skeletonStyles.cardContainer}>
+      <Skeleton width="60%" height={20} style={{ marginBottom: 12 }} />
+      <Skeleton width="100%" height={16} style={{ marginBottom: 8 }} />
+      <Skeleton width="80%" height={16} />
+    </View>
+  );
+}
+
 const skeletonStyles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  header: { alignItems: 'center', marginBottom: 16 },
-  questionCard: { padding: 24, alignItems: 'center', marginBottom: 28 },
-  options: { gap: 12 },
+  container: { 
+    flex: 1, 
+    padding: 20,
+  },
+  header: { 
+    alignItems: 'center', 
+    marginBottom: 24,
+  },
+  questionCard: { 
+    padding: 24, 
+    alignItems: 'center', 
+    marginBottom: 32,
+  },
+  options: { 
+    gap: 12,
+  },
+  profileContainer: {
+    alignItems: 'center',
+    padding: 24,
+  },
+  cardContainer: {
+    padding: 16,
+  },
 });
