@@ -3,6 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { QuestionCard } from '../../../components/game/QuestionCard';
+import { WaitingAnimation } from '../../../components/game/WaitingAnimation';
+import { AnswerReveal } from '../../../components/game/AnswerReveal';
+import { QuestionSkeleton } from '../../../components/ui/Skeleton';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { SyncScoreRing } from '../../../components/game/SyncScoreRing';
@@ -491,10 +494,14 @@ export default function DailySync() {
   if (phase === 'loading') {
     return (
       <SafeAreaView style={dynamicStyles.container}>
-        <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color={themeColors.purple} />
-          <Text style={dynamicStyles.loadingText}>Loading today's question...</Text>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleClose}>
+            <Text style={dynamicStyles.closeButton}>✕</Text>
+          </TouchableOpacity>
+          <Text style={dynamicStyles.headerTitle}>Daily Sync</Text>
+          <View style={{ width: 24 }} />
         </View>
+        <QuestionSkeleton />
       </SafeAreaView>
     );
   }
@@ -603,21 +610,13 @@ export default function DailySync() {
       {/* Waiting Phase */}
       {phase === 'waiting' && question && (
         <View style={styles.centerContent}>
-          <View style={dynamicStyles.waitingIcon}>
-            <Text style={styles.waitingEmoji}>
-              {partnerState === 'playing' && partnerCurrentScreen === 'daily' ? '💭' : '⏳'}
-            </Text>
-          </View>
-          <Text style={dynamicStyles.waitingTitle}>Waiting for {connectionName}</Text>
-          {partnerState === 'playing' && partnerCurrentScreen === 'daily' ? (
-            <PartnerAnsweringIndicator partnerName={connectionName} />
-          ) : (
-            <Text style={dynamicStyles.waitingSubtitle}>
-              {partnerState === 'online' ? "They're online but haven't started yet" : "We'll notify you when they answer"}
-            </Text>
-          )}
+          <WaitingAnimation 
+            partnerName={connectionName}
+            isPartnerOnline={partnerState === 'online' || partnerState === 'playing'}
+            isPartnerPlaying={partnerState === 'playing' && partnerCurrentScreen === 'daily'}
+          />
           
-          <Card style={styles.yourAnswerCard}>
+          <Card style={styles.yourAnswerCard} variant="elevated">
             <Text style={dynamicStyles.yourAnswerLabel}>YOUR ANSWER</Text>
             <Text style={dynamicStyles.yourAnswerText}>
               {question.options[selectedOption ?? 0]}
@@ -629,31 +628,13 @@ export default function DailySync() {
       {/* Reveal Phase */}
       {phase === 'reveal' && question && (
         <View style={styles.centerContent}>
-          <View style={styles.matchIndicator}>
-            <Text style={styles.matchEmoji}>{isMatch ? '✨' : '😅'}</Text>
-            <Text style={[dynamicStyles.matchText, { color: isMatch ? themeColors.success : themeColors.coral }]}>
-              {isMatch ? "It's a Match!" : 'Not Quite!'}
-            </Text>
-          </View>
-
-          <Card style={styles.revealCard}>
-            <Text style={dynamicStyles.revealQuestion}>{question.question}</Text>
-            
-            <View style={styles.revealAnswers}>
-              <View style={[dynamicStyles.answerBox, isMatch && { borderColor: themeColors.success }]}>
-                <Text style={dynamicStyles.answerName}>YOU</Text>
-                <Text style={dynamicStyles.answerValue}>
-                  {question.options[selectedOption ?? 0]}
-                </Text>
-              </View>
-              <View style={[dynamicStyles.answerBox, isMatch && { borderColor: themeColors.success }]}>
-                <Text style={dynamicStyles.answerName}>{connectionName.toUpperCase()}</Text>
-                <Text style={dynamicStyles.answerValue}>
-                  {question.options[partnerOption ?? 0]}
-                </Text>
-              </View>
-            </View>
-          </Card>
+          <AnswerReveal
+            question={question.question}
+            yourAnswer={question.options[selectedOption ?? 0]}
+            partnerAnswer={question.options[partnerOption ?? 0]}
+            partnerName={connectionName}
+            isMatch={isMatch}
+          />
 
           <Text style={[styles.pointsText, { color: isMatch ? themeColors.success : themeColors.textMuted }]}>
             {isMatch ? '+10 points' : 'Time for a conversation? 😏'}
