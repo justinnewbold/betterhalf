@@ -26,15 +26,15 @@ export default function RootLayout() {
   useEffect(() => {
     const init = async () => {
       try {
-        // Initialize theme (non-blocking)
-        initializeTheme();
+        // Initialize theme (async now)
+        await initializeTheme();
         
         // Initialize auth
         await initialize();
       } catch (error) {
         console.error('[RootLayout] Init error:', error);
       } finally {
-        // Always mark as ready after a timeout to prevent infinite loading
+        // Always mark as ready
         setIsReady(true);
       }
     };
