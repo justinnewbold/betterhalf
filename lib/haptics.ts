@@ -50,6 +50,21 @@ export const triggerHaptic = async (type: HapticType = 'medium'): Promise<void> 
 };
 
 /**
+ * Trigger light haptic feedback (subtle)
+ */
+export const hapticLight = () => triggerHaptic('light');
+
+/**
+ * Trigger medium haptic feedback
+ */
+export const hapticMedium = () => triggerHaptic('medium');
+
+/**
+ * Trigger heavy haptic feedback
+ */
+export const hapticHeavy = () => triggerHaptic('heavy');
+
+/**
  * Trigger haptic on button press
  */
 export const hapticPress = () => triggerHaptic('medium');
@@ -63,6 +78,11 @@ export const hapticSelection = () => triggerHaptic('selection');
  * Trigger haptic on success (match, achievement, etc.)
  */
 export const hapticSuccess = () => triggerHaptic('success');
+
+/**
+ * Trigger haptic on warning
+ */
+export const hapticWarning = () => triggerHaptic('warning');
 
 /**
  * Trigger haptic on error
