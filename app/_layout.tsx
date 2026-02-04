@@ -7,6 +7,7 @@ import { PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_
 import { useAuthStore } from '../stores/authStore';
 import { useThemeStore } from '../stores/themeStore';
 import { colors, getThemeColors } from '../constants/colors';
+import AchievementCelebration from '../components/AchievementCelebration';
 
 export default function RootLayout() {
   const { initialize, isInitialized } = useAuthStore();
@@ -75,6 +76,9 @@ export default function RootLayout() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(main)" />
       </Stack>
+      
+      {/* Global Achievement Celebration Modal */}
+      <AchievementCelebration />
     </>
   );
 }
