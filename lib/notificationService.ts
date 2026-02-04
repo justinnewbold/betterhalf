@@ -1,17 +1,5 @@
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import Constants from 'expo-constants';
 import { getSupabase, TABLES } from './supabase';
-
-// Configure notification handler
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
 
 // Notification types for the app
 export type NotificationType = 
@@ -32,12 +20,47 @@ export interface NotificationPayload {
   data?: Record<string, any>;
 }
 
+// Conditionally import expo-notifications only on native
+let Notifications: any = null;
+let Device: any = null;
+let Constants: any = null;
+
+// Dynamic imports for native-only modules
+async function loadNativeModules() {
+  if (Platform.OS !== 'web') {
+    try {
+      Notifications = await import('expo-notifications');
+      Device = await import('expo-device');
+      Constants = await import('expo-constants');
+      
+      // Configure notification handler
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+        }),
+      });
+    } catch (e) {
+      console.log('[Notifications] Native modules not available');
+    }
+  }
+}
+
+// Initialize on import
+loadNativeModules();
+
 // Register for push notifications
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
-  let token: string | null = null;
-
   if (Platform.OS === 'web') {
     console.log('[Notifications] Web push not implemented');
+    return null;
+  }
+
+  // Ensure modules are loaded
+  await loadNativeModules();
+  if (!Notifications || !Device) {
+    console.log('[Notifications] Native modules not available');
     return null;
   }
 
@@ -63,47 +86,16 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
 
   // Get Expo push token
   try {
-    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    const projectId = Constants?.expoConfig?.extra?.eas?.projectId;
     const tokenResult = await Notifications.getExpoPushTokenAsync({
       projectId: projectId || 'betterhalf',
     });
-    token = tokenResult.data;
-    console.log('[Notifications] Push token:', token);
+    console.log('[Notifications] Push token:', tokenResult.data);
+    return tokenResult.data;
   } catch (error) {
     console.error('[Notifications] Failed to get push token:', error);
     return null;
   }
-
-  // Configure Android notification channel
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'Better Half',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF6B9D',
-    });
-
-    // Create separate channels for different notification types
-    await Notifications.setNotificationChannelAsync('reminders', {
-      name: 'Daily Reminders',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
-    });
-
-    await Notifications.setNotificationChannelAsync('social', {
-      name: 'Partner & Friends',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-    });
-
-    await Notifications.setNotificationChannelAsync('achievements', {
-      name: 'Achievements',
-      importance: Notifications.AndroidImportance.DEFAULT,
-      vibrationPattern: [0, 100],
-    });
-  }
-
-  return token;
 }
 
 // Save push token to user profile
@@ -125,11 +117,16 @@ export async function savePushToken(userId: string, token: string): Promise<void
   }
 }
 
-// Schedule local notification
+// Schedule local notification (native only)
 export async function scheduleLocalNotification(
   notification: NotificationPayload,
-  trigger?: Notifications.NotificationTriggerInput
+  trigger?: any
 ): Promise<string | null> {
+  if (Platform.OS === 'web' || !Notifications) {
+    console.log('[Notifications] Local notifications not available on web');
+    return null;
+  }
+
   try {
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
@@ -138,7 +135,7 @@ export async function scheduleLocalNotification(
         data: { type: notification.type, ...notification.data },
         sound: true,
       },
-      trigger: trigger || null, // null = immediate
+      trigger: trigger || null,
     });
     return notificationId;
   } catch (error) {
@@ -147,8 +144,12 @@ export async function scheduleLocalNotification(
   }
 }
 
-// Schedule daily reminder
+// Schedule daily reminder (native only)
 export async function scheduleDailyReminder(hour: number = 19, minute: number = 0): Promise<string | null> {
+  if (Platform.OS === 'web' || !Notifications) {
+    return null;
+  }
+
   // Cancel existing daily reminders
   await cancelScheduledNotifications('daily_reminder');
 
@@ -168,6 +169,8 @@ export async function scheduleDailyReminder(hour: number = 19, minute: number = 
 
 // Cancel scheduled notifications by type
 export async function cancelScheduledNotifications(type?: NotificationType): Promise<void> {
+  if (Platform.OS === 'web' || !Notifications) return;
+
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   
   for (const notification of scheduled) {
@@ -177,23 +180,19 @@ export async function cancelScheduledNotifications(type?: NotificationType): Pro
   }
 }
 
-// Send notification to partner (server-side would use Expo Push API)
-// This is a client-side placeholder that shows local notification
-export async function notifyPartner(
-  partnerId: string,
+// Store notification for delivery via database
+export async function queueNotification(
+  userId: string,
   notification: NotificationPayload
 ): Promise<boolean> {
-  // In production, this would call a Supabase Edge Function
-  // that uses Expo Push Notification API to send to partner
   const supabase = getSupabase();
   if (!supabase) return false;
 
   try {
-    // Store notification in database for delivery
     await supabase
       .from('betterhalf_notifications')
       .insert({
-        user_id: partnerId,
+        user_id: userId,
         type: notification.type,
         title: notification.title,
         body: notification.body,
@@ -206,20 +205,6 @@ export async function notifyPartner(
     console.error('[Notifications] Failed to queue notification:', error);
     return false;
   }
-}
-
-// Add notification listener
-export function addNotificationListener(
-  callback: (notification: Notifications.Notification) => void
-): Notifications.Subscription {
-  return Notifications.addNotificationReceivedListener(callback);
-}
-
-// Add response listener (when user taps notification)
-export function addNotificationResponseListener(
-  callback: (response: Notifications.NotificationResponse) => void
-): Notifications.Subscription {
-  return Notifications.addNotificationResponseReceivedListener(callback);
 }
 
 // Get notification settings
@@ -275,14 +260,16 @@ export async function saveNotificationSettings(
       .update({ notification_settings: settings })
       .eq('id', userId);
 
-    // Update scheduled notifications based on settings
-    if (settings.dailyReminder) {
-      await scheduleDailyReminder(
-        settings.dailyReminderTime.hour,
-        settings.dailyReminderTime.minute
-      );
-    } else {
-      await cancelScheduledNotifications('daily_reminder');
+    // Update scheduled notifications based on settings (native only)
+    if (Platform.OS !== 'web') {
+      if (settings.dailyReminder) {
+        await scheduleDailyReminder(
+          settings.dailyReminderTime.hour,
+          settings.dailyReminderTime.minute
+        );
+      } else {
+        await cancelScheduledNotifications('daily_reminder');
+      }
     }
 
     return true;
