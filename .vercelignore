@@ -1,0 +1,9 @@
+# Supabase Edge Functions (not for Vercel)
+supabase/
+
+# Documentation
+docs/
+
+# Config files not needed in build
+store.config.json
+eas.json
