@@ -1,0 +1,47 @@
+{
+  "configVersion": 1,
+  "apple": {
+    "info": {
+      "en-US": {
+        "title": "Better Half - Couples Game",
+        "subtitle": "Daily Questions for Couples",
+        "description": "Strengthen your relationship with daily questions designed to spark meaningful conversations.\n\n🎯 DAILY SYNC\nAnswer fun questions with your partner and discover how well you know each other. Match your answers to build your streak!\n\n💕 RELATIONSHIP BUILDING\n• 168 thoughtfully crafted questions across 6 categories\n• Daily Life, Romance, Deep Talks, Fun, Spice, and more\n• Track your sync score and see how compatible you are\n\n🔥 STREAKS & ACHIEVEMENTS\n• Build daily streaks by playing together\n• Unlock achievements as you grow closer\n• Celebrate milestones with your partner\n\n👨‍👩‍👧‍👦 FRIENDS & FAMILY MODE\n• Play appropriate games with friends and family too\n• Different question sets for different relationships\n• Share invite codes to connect\n\n✨ FEATURES\n• Beautiful dark-themed design\n• Real-time partner status\n• Haptic feedback for iOS\n• Progress tracking and statistics\n\nBetter Half helps couples connect through daily conversations. Whether you've been together for months or decades, there's always more to discover about your partner.\n\nStart your daily sync today! 💑",
+        "keywords": "couples,relationship,questions,game,dating,love,connection,daily,sync,match,quiz,partner,together,communication,bonding",
+        "marketingUrl": "https://betterhalf.newbold.cloud",
+        "supportUrl": "https://betterhalf.newbold.cloud/support",
+        "privacyPolicyUrl": "https://betterhalf.newbold.cloud/privacy"
+      }
+    },
+    "categories": {
+      "primary": "LIFESTYLE",
+      "secondary": "SOCIAL_NETWORKING"
+    },
+    "contentRating": {
+      "ageRating": "12+",
+      "alcoholTobacco": "none",
+      "gambling": "none",
+      "horror": "none",
+      "matureContent": "infrequent",
+      "medicalInfo": "none",
+      "profanity": "none",
+      "violence": "none"
+    },
+    "review": {
+      "email": "justin@newbold.cloud",
+      "firstName": "Justin",
+      "lastName": "Newbold",
+      "phone": "+1 (555) 000-0000"
+    }
+  },
+  "android": {
+    "info": {
+      "en-US": {
+        "title": "Better Half - Couples Game",
+        "shortDescription": "Daily questions for couples to strengthen your relationship",
+        "fullDescription": "Strengthen your relationship with daily questions designed to spark meaningful conversations.\n\n🎯 DAILY SYNC\nAnswer fun questions with your partner and discover how well you know each other. Match your answers to build your streak!\n\n💕 RELATIONSHIP BUILDING\n• 168 thoughtfully crafted questions across 6 categories\n• Daily Life, Romance, Deep Talks, Fun, Spice, and more\n• Track your sync score and see how compatible you are\n\n🔥 STREAKS & ACHIEVEMENTS\n• Build daily streaks by playing together\n• Unlock achievements as you grow closer\n• Celebrate milestones with your partner\n\n👨‍👩‍👧‍👦 FRIENDS & FAMILY MODE\n• Play appropriate games with friends and family too\n• Different question sets for different relationships\n• Share invite codes to connect\n\n✨ FEATURES\n• Beautiful dark-themed design\n• Real-time partner status\n• Progress tracking and statistics\n• Offline support\n\nBetter Half helps couples connect through daily conversations. Whether you've been together for months or decades, there's always more to discover about your partner.\n\nStart your daily sync today! 💑"
+      }
+    },
+    "category": "LIFESTYLE",
+    "contentRating": "Everyone 10+"
+  }
+}
