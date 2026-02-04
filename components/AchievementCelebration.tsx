@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Modal, Animated, Easing, TouchableOpacity, Dimensions } from 'react-native';
-import { useAchievementStore } from '../../stores/achievementStore';
-import { useThemeStore } from '../../stores/themeStore';
-import { getThemeColors } from '../../constants/colors';
-import { typography, fontFamilies } from '../../constants/typography';
+import { useAchievementStore } from '../stores/achievementStore';
+import { useThemeStore } from '../stores/themeStore';
+import { getThemeColors } from '../constants/colors';
+import { typography, fontFamilies } from '../constants/typography';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -318,3 +318,4 @@ const styles = StyleSheet.create({
     bottom: '40%',
   },
 });
+
