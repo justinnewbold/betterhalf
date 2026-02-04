@@ -8,21 +8,41 @@
     "scheme": "betterhalf",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "owner": "justinnewbold",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0F0F1A"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.newbold.betterhalf"
+      "bundleIdentifier": "com.newbold.betterhalf",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Better Half needs camera access to let you take profile photos.",
+        "NSPhotoLibraryUsageDescription": "Better Half needs photo library access to let you choose profile photos.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F0F1A"
       },
-      "package": "com.newbold.betterhalf"
+      "package": "com.newbold.betterhalf",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "VIBRATE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -32,10 +52,28 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#FF6B6B"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "betterhalf"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/betterhalf"
     }
   }
 }
