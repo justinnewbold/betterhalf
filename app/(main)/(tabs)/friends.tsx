@@ -17,6 +17,7 @@ import { useFriendsStore } from '../../../stores/friendsStore';
 import { useAuthStore } from '../../../stores/authStore';
 import { RELATIONSHIP_TYPES, RelationshipType } from '../../../lib/supabase';
 import AddFriendModal from '../../../components/AddFriendModal';
+import { hapticLight, hapticSuccess, hapticError } from '../../../lib/haptics';
 
 export default function FriendsScreen() {
   const { user } = useAuthStore();
@@ -42,6 +43,7 @@ export default function FriendsScreen() {
   }, [user?.id]);
 
   const onRefresh = async () => {
+    hapticLight();
     if (!user?.id) return;
     setRefreshing(true);
     await fetchFriends(user.id);
@@ -54,8 +56,10 @@ export default function FriendsScreen() {
     const { error } = await acceptFriendRequest(user.id, friendshipId);
     if (error) {
       const errorMsg = typeof error === 'string' ? error : 'Could not accept invite. Please try again.';
+      hapticError();
       Alert.alert('Error', errorMsg);
     } else {
+      hapticSuccess();
       Alert.alert('Success!', 'You are now connected!');
     }
   };
@@ -472,3 +476,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
