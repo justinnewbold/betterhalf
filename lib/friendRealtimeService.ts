@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { getSupabase } from './supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface FriendGameUpdate {
@@ -46,6 +46,9 @@ class FriendRealtimeService {
 
     // Create channel if it doesn't exist
     if (!this.gameChannels.has(channelKey)) {
+      const supabase = getSupabase();
+      if (!supabase) return () => {};
+      
       const channel = supabase
         .channel(channelKey)
         .on(
@@ -88,7 +91,8 @@ class FriendRealtimeService {
       if (callbacks?.size === 0) {
         const channel = this.gameChannels.get(channelKey);
         if (channel) {
-          supabase.removeChannel(channel);
+          const supabase = getSupabase();
+          supabase?.removeChannel(channel);
           this.gameChannels.delete(channelKey);
           this.gameCallbacks.delete(channelKey);
         }
@@ -112,6 +116,9 @@ class FriendRealtimeService {
     this.gameCallbacks.get(channelKey)!.add(callback);
 
     if (!this.gameChannels.has(channelKey)) {
+      const supabase = getSupabase();
+      if (!supabase) return () => {};
+      
       // We need to listen to all games where this user is involved
       // This requires a custom filter or listening to all and filtering client-side
       const channel = supabase
@@ -126,8 +133,10 @@ class FriendRealtimeService {
           async (payload) => {
             // Verify this game belongs to a friendship involving the user
             const friendshipId = payload.new?.friendship_id || payload.old?.friendship_id;
+            const client = getSupabase();
+            if (!client) return;
             
-            const { data: friendship } = await supabase
+            const { data: friendship } = await client
               .from('betterhalf_friends')
               .select('id, user_id, friend_id')
               .eq('id', friendshipId)
@@ -161,7 +170,8 @@ class FriendRealtimeService {
       if (callbacks?.size === 0) {
         const channel = this.gameChannels.get(channelKey);
         if (channel) {
-          supabase.removeChannel(channel);
+          const supabase = getSupabase();
+          supabase?.removeChannel(channel);
           this.gameChannels.delete(channelKey);
           this.gameCallbacks.delete(channelKey);
         }
@@ -180,6 +190,9 @@ class FriendRealtimeService {
     this.activityCallbacks.add(callback);
 
     if (!this.activityChannel) {
+      const supabase = getSupabase();
+      if (!supabase) return () => {};
+      
       this.activityChannel = supabase
         .channel('friend_activity')
         .on('presence', { event: 'sync' }, () => {
@@ -227,7 +240,8 @@ class FriendRealtimeService {
       this.activityCallbacks.delete(callback);
 
       if (this.activityCallbacks.size === 0 && this.activityChannel) {
-        supabase.removeChannel(this.activityChannel);
+        const supabase = getSupabase();
+        supabase?.removeChannel(this.activityChannel);
         this.activityChannel = null;
       }
     };
@@ -238,6 +252,9 @@ class FriendRealtimeService {
    * Call this when user opens the app or navigates to friends
    */
   async trackPresence(userId: string): Promise<() => void> {
+    const supabase = getSupabase();
+    if (!supabase) return () => {};
+    
     const channel = supabase.channel('friend_activity');
     
     await channel.subscribe(async (status) => {
@@ -260,16 +277,18 @@ class FriendRealtimeService {
    * Call this on logout or app close
    */
   cleanup(): void {
+    const supabase = getSupabase();
+    
     // Remove all game channels
     this.gameChannels.forEach((channel) => {
-      supabase.removeChannel(channel);
+      supabase?.removeChannel(channel);
     });
     this.gameChannels.clear();
     this.gameCallbacks.clear();
 
     // Remove activity channel
     if (this.activityChannel) {
-      supabase.removeChannel(this.activityChannel);
+      supabase?.removeChannel(this.activityChannel);
       this.activityChannel = null;
     }
     this.activityCallbacks.clear();

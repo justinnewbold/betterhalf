@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase, TABLES, QuestionCategory } from '../lib/supabase';
+import { getSupabase, TABLES, QuestionCategory } from '../lib/supabase';
 import type { Tables } from '../lib/supabase';
 
 type Question = Tables['questions'];
@@ -44,6 +44,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   startGame: async (coupleId, mode) => {
     try {
+      const supabase = getSupabase();
       if (!supabase) return { error: { message: 'Supabase not configured' } };
       
       set({ isLoading: true });
@@ -83,6 +84,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   loadQuestions: async (coupleId, categories) => {
     try {
+      const supabase = getSupabase();
       if (!supabase) return;
       
       const { currentSession } = get();
@@ -160,6 +162,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   submitAnswer: async (questionId, userId, selectedOption) => {
     try {
+      const supabase = getSupabase();
       if (!supabase) return { error: { message: 'Supabase not configured' } };
       
       const { currentSession, myAnswers } = get();
@@ -186,6 +189,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   completeGame: async () => {
     try {
+      const supabase = getSupabase();
       if (!supabase) return { score: 0, matched: 0, error: { message: 'Supabase not configured' } };
       
       const { currentSession, myAnswers, partnerAnswers, questions } = get();

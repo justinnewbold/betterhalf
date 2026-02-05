@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../../lib/supabase';
+import { getSupabase } from '../../../../lib/supabase';
 import { useFriendsStore } from '../../../../stores/friendsStore';
 
 interface GameResult {
@@ -103,6 +103,12 @@ export default function FriendGameResultsScreen() {
   }, [gameResult]);
   
   const fetchGameResult = async () => {
+    const supabase = getSupabase();
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       

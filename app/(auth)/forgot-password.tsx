@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { supabase } from '../../lib/supabase';
+import { getSupabase } from '../../lib/supabase';
 import { colors } from '../../constants/colors';
 import { typography, fontFamilies } from '../../constants/typography';
 
@@ -21,6 +21,7 @@ export default function ForgotPassword() {
       return;
     }
 
+    const supabase = getSupabase();
     if (!supabase) {
       setError('Service not available');
       return;

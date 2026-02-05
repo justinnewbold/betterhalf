@@ -1,14 +1,18 @@
 import { Stack } from 'expo-router';
-import { colors } from '../../constants/colors';
+import { useThemeStore } from '../../stores/themeStore';
+import { getThemeColors } from '../../constants/colors';
 import AchievementCelebration from '../../components/AchievementCelebration';
 
 export default function MainLayout() {
+  const { isDark } = useThemeStore();
+  const themeColors = getThemeColors(isDark);
+  
   return (
     <>
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: colors.darkBg },
+          contentStyle: { backgroundColor: themeColors.background },
         }}
       >
         <Stack.Screen name="(tabs)" />
