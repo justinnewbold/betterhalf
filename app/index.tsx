@@ -1,4 +1,4 @@
-import { Redirect } from 'expo-router';
+import { Redirect, Href } from 'expo-router';
 import { useAuthStore } from '../stores/authStore';
 import { useCoupleStore } from '../stores/coupleStore';
 import { useEffect, useState } from 'react';
@@ -71,12 +71,12 @@ export default function Index() {
 
   // Password reset flow - redirect to reset-password page with params preserved
   if (isPasswordReset) {
-    return <Redirect href={resetUrl as any} />;
+    return <Redirect href={resetUrl as Href} />;
   }
 
   // Invite link with code - redirect to public invite page
   if (isInviteLink && inviteCode) {
-    return <Redirect href={`/invite?code=${inviteCode}` as any} />;
+    return <Redirect href={`/invite?code=${inviteCode}` as Href} />;
   }
 
   // Still initializing auth

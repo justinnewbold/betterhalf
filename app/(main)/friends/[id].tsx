@@ -59,7 +59,7 @@ export default function FriendSettingsScreen() {
       color: themeColors.textPrimary,
     },
     relationshipIconBadge: {
-      backgroundColor: themeColors.card,
+      backgroundColor: themeColors.cardBackground,
       borderColor: themeColors.background,
     },
     profileName: {

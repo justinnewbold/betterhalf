@@ -36,14 +36,14 @@ interface SettingRowProps {
 
 function SettingRow({ icon, title, description, value, onValueChange, disabled, themeColors }: SettingRowProps) {
   return (
-    <View style={[styles.settingRow, { borderBottomColor: themeColors.border }]}>
+    <View style={[styles.settingRow, { borderBottomColor: themeColors.cardBorder }]}>
       <View style={styles.settingIcon}>
         <Text style={styles.iconText}>{icon}</Text>
       </View>
       <View style={styles.settingContent}>
-        <Text style={[styles.settingTitle, { color: themeColors.text }]}>{title}</Text>
+        <Text style={[styles.settingTitle, { color: themeColors.textPrimary }]}>{title}</Text>
         {description && (
-          <Text style={[styles.settingDescription, { color: themeColors.textSecondary }]}>
+          <Text style={[styles.settingDescription, { color: themeColors.textPrimarySecondary }]}>
             {description}
           </Text>
         )}
@@ -54,7 +54,7 @@ function SettingRow({ icon, title, description, value, onValueChange, disabled, 
           hapticLight();
           onValueChange(newValue);
         }}
-        trackColor={{ false: themeColors.border, true: colors.primary }}
+        trackColor={{ false: themeColors.cardBorder, true: colors.coral }}
         thumbColor={value ? '#fff' : '#f4f3f4'}
         disabled={disabled}
       />
@@ -137,7 +137,7 @@ export default function NotificationsScreen() {
       <View style={[styles.container, { backgroundColor: themeColors.background }]}>
         <Stack.Screen options={{ title: 'Notifications' }} />
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading...</Text>
+          <Text style={[styles.loadingText, { color: themeColors.textPrimarySecondary }]}>Loading...</Text>
         </View>
       </View>
     );
@@ -149,7 +149,7 @@ export default function NotificationsScreen() {
         options={{ 
           title: 'Notifications',
           headerStyle: { backgroundColor: themeColors.background },
-          headerTintColor: themeColors.text,
+          headerTintColor: themeColors.textPrimary,
         }} 
       />
       
@@ -158,7 +158,7 @@ export default function NotificationsScreen() {
         {!pushEnabled && Platform.OS !== 'web' && (
           <TouchableOpacity onPress={enablePushNotifications}>
             <LinearGradient
-              colors={[colors.primary, '#FF8E53']}
+              colors={[colors.coral, '#FF8E53']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.enableBanner}
@@ -177,11 +177,11 @@ export default function NotificationsScreen() {
 
         {/* Daily Reminders Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimarySecondary }]}>
             DAILY REMINDERS
           </Text>
           
-          <View style={[styles.sectionCard, { backgroundColor: themeColors.surface }]}>
+          <View style={[styles.sectionCard, { backgroundColor: themeColors.cardBackground }]}>
             <SettingRow
               icon="⏰"
               title="Daily Game Reminder"
@@ -193,7 +193,7 @@ export default function NotificationsScreen() {
             
             {settings.dailyReminder && (
               <View style={styles.timeSelector}>
-                <Text style={[styles.timeSelectorLabel, { color: themeColors.textSecondary }]}>
+                <Text style={[styles.timeSelectorLabel, { color: themeColors.textPrimarySecondary }]}>
                   Reminder Time
                 </Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -206,8 +206,8 @@ export default function NotificationsScreen() {
                         key={time.label}
                         style={[
                           styles.timeOption,
-                          { borderColor: themeColors.border },
-                          isSelected && { backgroundColor: colors.primary, borderColor: colors.primary },
+                          { borderColor: themeColors.cardBorder },
+                          isSelected && { backgroundColor: colors.coral, borderColor: colors.coral },
                         ]}
                         onPress={() => {
                           hapticLight();
@@ -221,7 +221,7 @@ export default function NotificationsScreen() {
                       >
                         <Text style={[
                           styles.timeOptionText,
-                          { color: isSelected ? '#fff' : themeColors.text },
+                          { color: isSelected ? '#fff' : themeColors.textPrimary },
                         ]}>
                           {time.label}
                         </Text>
@@ -236,11 +236,11 @@ export default function NotificationsScreen() {
 
         {/* Partner Activity Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimarySecondary }]}>
             PARTNER ACTIVITY
           </Text>
           
-          <View style={[styles.sectionCard, { backgroundColor: themeColors.surface }]}>
+          <View style={[styles.sectionCard, { backgroundColor: themeColors.cardBackground }]}>
             <SettingRow
               icon="💕"
               title="Partner Answered"
@@ -263,11 +263,11 @@ export default function NotificationsScreen() {
 
         {/* Achievements & Progress Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimarySecondary }]}>
             ACHIEVEMENTS & PROGRESS
           </Text>
           
-          <View style={[styles.sectionCard, { backgroundColor: themeColors.surface }]}>
+          <View style={[styles.sectionCard, { backgroundColor: themeColors.cardBackground }]}>
             <SettingRow
               icon="🏆"
               title="Achievement Unlocked"
@@ -281,11 +281,11 @@ export default function NotificationsScreen() {
 
         {/* Friends & Social Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimarySecondary }]}>
             FRIENDS & SOCIAL
           </Text>
           
-          <View style={[styles.sectionCard, { backgroundColor: themeColors.surface }]}>
+          <View style={[styles.sectionCard, { backgroundColor: themeColors.cardBackground }]}>
             <SettingRow
               icon="👥"
               title="Friend Requests"
@@ -299,11 +299,11 @@ export default function NotificationsScreen() {
 
         {/* Email Notifications Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimarySecondary }]}>
             EMAIL NOTIFICATIONS
           </Text>
           
-          <View style={[styles.sectionCard, { backgroundColor: themeColors.surface }]}>
+          <View style={[styles.sectionCard, { backgroundColor: themeColors.cardBackground }]}>
             <SettingRow
               icon="📊"
               title="Weekly Stats Summary"
@@ -316,7 +316,7 @@ export default function NotificationsScreen() {
         </View>
 
         {saving && (
-          <Text style={[styles.savingText, { color: themeColors.textSecondary }]}>
+          <Text style={[styles.savingText, { color: themeColors.textPrimarySecondary }]}>
             Saving...
           </Text>
         )}

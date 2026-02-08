@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { getSupabase, TABLES } from './supabase';
+import { DEFAULT_DAILY_REMINDER_HOUR, DEFAULT_DAILY_REMINDER_MINUTE } from '../constants/config';
 
 // Notification types for the app
 export type NotificationType = 
@@ -145,7 +146,7 @@ export async function scheduleLocalNotification(
 }
 
 // Schedule daily reminder (native only)
-export async function scheduleDailyReminder(hour: number = 19, minute: number = 0): Promise<string | null> {
+export async function scheduleDailyReminder(hour: number = DEFAULT_DAILY_REMINDER_HOUR, minute: number = DEFAULT_DAILY_REMINDER_MINUTE): Promise<string | null> {
   if (Platform.OS === 'web' || !Notifications) {
     return null;
   }

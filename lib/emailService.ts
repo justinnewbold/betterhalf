@@ -278,6 +278,56 @@ export async function getWeeklyStats(userId: string, coupleId: string): Promise<
       weekHighlight = `Amazing dedication! ${gamesPlayed} games this week shows real commitment.`;
     }
 
+    // Calculate best category from this week's sessions
+    let bestCategory = 'Daily Life';
+    if (sessions && sessions.length > 0) {
+      const questionIds = sessions.map(s => s.question_id).filter(Boolean);
+      if (questionIds.length > 0) {
+        const { data: questions } = await supabase
+          .from(TABLES.questions)
+          .select('id, category')
+          .in('id', questionIds);
+
+        if (questions && questions.length > 0) {
+          // Count matches per category
+          const categoryMatches: Record<string, { matches: number; total: number }> = {};
+          for (const session of sessions) {
+            const q = questions.find(q => q.id === session.question_id);
+            if (!q) continue;
+            if (!categoryMatches[q.category]) {
+              categoryMatches[q.category] = { matches: 0, total: 0 };
+            }
+            categoryMatches[q.category].total++;
+            if (session.is_match) categoryMatches[q.category].matches++;
+          }
+
+          // Find category with highest match rate (min 2 questions)
+          let bestRate = -1;
+          for (const [category, stats] of Object.entries(categoryMatches)) {
+            if (stats.total >= 2) {
+              const rate = stats.matches / stats.total;
+              if (rate > bestRate) {
+                bestRate = rate;
+                bestCategory = category;
+              }
+            }
+          }
+
+          // Format category name
+          const categoryLabels: Record<string, string> = {
+            daily_life: 'Daily Life',
+            heart: 'Romance',
+            history: 'Deep Talks',
+            spice: 'Spicy',
+            fun: 'Fun',
+            deep_talks: 'Deep Conversations',
+            custom: 'Custom',
+          };
+          bestCategory = categoryLabels[bestCategory] || bestCategory;
+        }
+      }
+    }
+
     return {
       userName: userName || 'Friend',
       partnerName: partnerName || 'Partner',
@@ -285,7 +335,7 @@ export async function getWeeklyStats(userId: string, coupleId: string): Promise<
       matchesCount,
       syncScore,
       currentStreak: streak?.current_streak || 0,
-      bestCategory: 'Daily Life', // TODO: Calculate from actual data
+      bestCategory,
       weekHighlight,
     };
   } catch (error) {

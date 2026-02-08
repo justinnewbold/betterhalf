@@ -267,7 +267,7 @@ export default function FriendPlayScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.darkBg },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   loadingText: { color: colors.textMuted, marginTop: 16, fontSize: 16 },
   errorEmoji: { fontSize: 64, marginBottom: 16 },

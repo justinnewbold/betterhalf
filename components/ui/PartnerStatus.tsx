@@ -90,7 +90,7 @@ export function PartnerStatus({ partnerName, size = 'small', showLabel = true }:
   const isActive = partnerState === 'online' || partnerState === 'playing';
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} accessibilityLabel={`${partnerName}: ${getStatusText()}`} accessibilityRole="text">
       <View style={[styles.statusDot, { width: dotSize + 6, height: dotSize + 6 }]}>
         {isActive && (
           <Animated.View 

@@ -130,7 +130,7 @@ export default function PremiumScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.darkBg,
   },
   scrollView: {
     flex: 1,
@@ -146,19 +146,19 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     ...typography.h1,
-    color: colors.text,
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   heroSubtitle: {
     ...typography.body,
-    color: colors.textSecondary,
+    color: colors.textPrimarySecondary,
   },
   comingSoonCard: {
     margin: 16,
     padding: 24,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.primary,
+    borderColor: colors.coral,
   },
   comingSoonIcon: {
     fontSize: 48,
@@ -166,12 +166,12 @@ const styles = StyleSheet.create({
   },
   comingSoonTitle: {
     ...typography.h2,
-    color: colors.primary,
+    color: colors.coral,
     marginBottom: 8,
   },
   comingSoonText: {
     ...typography.body,
-    color: colors.textSecondary,
+    color: colors.textPrimarySecondary,
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...typography.h3,
-    color: colors.text,
+    color: colors.textPrimary,
     marginHorizontal: 16,
     marginTop: 24,
     marginBottom: 12,
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
   planHeader: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.cardDarkBorder,
   },
   planColumn: {
     flex: 1,
@@ -201,15 +201,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   premiumColumn: {
-    backgroundColor: colors.primary + '10',
+    backgroundColor: colors.coral + '10',
   },
   planName: {
     ...typography.body,
     fontFamily: fontFamilies.semiBold,
-    color: colors.textSecondary,
+    color: colors.textPrimarySecondary,
   },
   premiumText: {
-    color: colors.primary,
+    color: colors.coral,
   },
   featureRow: {
     flexDirection: 'row',
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.cardDarkBorder,
   },
   lastRow: {
     borderBottomWidth: 0,
@@ -236,12 +236,12 @@ const styles = StyleSheet.create({
   },
   featureTitle: {
     ...typography.body,
-    color: colors.text,
+    color: colors.textPrimary,
     fontSize: 14,
   },
   featureDesc: {
     ...typography.caption,
-    color: colors.textMuted,
+    color: colors.textPrimaryMuted,
     fontSize: 11,
   },
   checkColumns: {
@@ -252,14 +252,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   premiumCheckColumn: {
-    backgroundColor: colors.primary + '10',
+    backgroundColor: colors.coral + '10',
   },
   check: {
     fontSize: 16,
-    color: colors.textMuted,
+    color: colors.textPrimaryMuted,
   },
   premiumCheck: {
-    color: colors.primary,
+    color: colors.coral,
   },
   pricingRow: {
     flexDirection: 'row',
@@ -273,12 +273,12 @@ const styles = StyleSheet.create({
   },
   pricingCardBest: {
     borderWidth: 2,
-    borderColor: colors.primary,
+    borderColor: colors.coral,
   },
   bestValueBadge: {
     position: 'absolute',
     top: -12,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.coral,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
@@ -290,17 +290,17 @@ const styles = StyleSheet.create({
   },
   pricingPeriod: {
     ...typography.body,
-    color: colors.textSecondary,
+    color: colors.textPrimarySecondary,
     marginBottom: 8,
   },
   pricingAmount: {
     fontSize: 32,
     fontFamily: fontFamilies.bold,
-    color: colors.text,
+    color: colors.textPrimary,
   },
   pricingNote: {
     ...typography.caption,
-    color: colors.textMuted,
+    color: colors.textPrimaryMuted,
   },
   savingsText: {
     ...typography.caption,
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   },
   disclaimer: {
     ...typography.caption,
-    color: colors.textMuted,
+    color: colors.textPrimaryMuted,
     textAlign: 'center',
     marginTop: 16,
     marginHorizontal: 16,

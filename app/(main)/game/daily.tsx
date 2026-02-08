@@ -455,24 +455,24 @@ export default function DailySyncGame() {
     },
     loadingText: {
       ...typography.body,
-      color: themeColors.textMuted,
+      color: themeColors.textPrimaryMuted,
       marginTop: 16,
     },
     headerTitle: {
       fontFamily: fontFamilies.bodyBold,
       fontSize: 20,
-      color: themeColors.text,
+      color: themeColors.textPrimary,
     },
     questionNumber: {
       fontFamily: fontFamilies.bodySemiBold,
       fontSize: 14,
-      color: themeColors.primary,
+      color: themeColors.coral,
       textTransform: 'uppercase' as const,
       letterSpacing: 1.5,
       marginBottom: 8,
     },
     categoryBadge: {
-      backgroundColor: `${themeColors.primary}20`,
+      backgroundColor: `${themeColors.coral}20`,
       paddingHorizontal: 12,
       paddingVertical: 4,
       borderRadius: 12,
@@ -482,27 +482,27 @@ export default function DailySyncGame() {
     categoryText: {
       fontFamily: fontFamilies.bodySemiBold,
       fontSize: 12,
-      color: themeColors.primary,
+      color: themeColors.coral,
       textTransform: 'uppercase' as const,
       letterSpacing: 1,
     },
     waitingTitle: {
       fontFamily: fontFamilies.bodyBold,
       fontSize: 20,
-      color: themeColors.text,
+      color: themeColors.textPrimary,
       textAlign: 'center' as const,
       marginTop: 24,
     },
     waitingSubtitle: {
       ...typography.body,
-      color: themeColors.textSecondary,
+      color: themeColors.textPrimarySecondary,
       textAlign: 'center' as const,
       marginTop: 8,
     },
     resultsLabel: {
       fontFamily: fontFamilies.bodySemiBold,
       fontSize: 12,
-      color: themeColors.primary,
+      color: themeColors.coral,
       textTransform: 'uppercase' as const,
       letterSpacing: 2,
       marginBottom: 8,
@@ -510,19 +510,19 @@ export default function DailySyncGame() {
     resultsTitle: {
       fontFamily: fontFamilies.bodyBold,
       fontSize: 28,
-      color: themeColors.text,
+      color: themeColors.textPrimary,
       textAlign: 'center' as const,
       marginBottom: 24,
     },
     statLabel: {
       ...typography.caption,
-      color: themeColors.textMuted,
+      color: themeColors.textPrimaryMuted,
       marginTop: 4,
     },
     statValue: {
       fontFamily: fontFamilies.bodyBold,
       fontSize: 24,
-      color: themeColors.text,
+      color: themeColors.textPrimary,
     },
     errorText: {
       ...typography.body,
@@ -562,7 +562,7 @@ export default function DailySyncGame() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
-          <Text style={[styles.closeText, { color: themeColors.textMuted }]}>✕</Text>
+          <Text style={[styles.closeText, { color: themeColors.textPrimaryMuted }]}>✕</Text>
         </TouchableOpacity>
         <Text style={dynamicStyles.headerTitle}>Daily Sync</Text>
         <View style={styles.closeButton} />
@@ -681,19 +681,19 @@ export default function DailySyncGame() {
           </Text>
           
           <Card style={styles.alreadyPlayedCard} variant="elevated" padding="medium">
-            <Text style={[styles.questionText, { color: themeColors.text }]}>
+            <Text style={[styles.questionText, { color: themeColors.textPrimary }]}>
               {question.question}
             </Text>
             <View style={styles.answersContainer}>
               <View style={styles.answerBox}>
-                <Text style={[styles.answerLabel, { color: themeColors.textMuted }]}>You</Text>
-                <Text style={[styles.answerText, { color: themeColors.text }]}>
+                <Text style={[styles.answerLabel, { color: themeColors.textPrimaryMuted }]}>You</Text>
+                <Text style={[styles.answerText, { color: themeColors.textPrimary }]}>
                   {question.options[selectedOption]}
                 </Text>
               </View>
               <View style={styles.answerBox}>
-                <Text style={[styles.answerLabel, { color: themeColors.textMuted }]}>{connectionName}</Text>
-                <Text style={[styles.answerText, { color: themeColors.text }]}>
+                <Text style={[styles.answerLabel, { color: themeColors.textPrimaryMuted }]}>{connectionName}</Text>
+                <Text style={[styles.answerText, { color: themeColors.textPrimary }]}>
                   {question.options[partnerOption]}
                 </Text>
               </View>

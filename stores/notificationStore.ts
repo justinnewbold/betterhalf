@@ -124,8 +124,30 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   updatePreferences: async (prefs) => {
     const currentPrefs = get().preferences;
     const newPrefs = { ...currentPrefs, ...prefs };
-    
+
     set({ preferences: newPrefs });
+
+    // Persist to database
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        // Get current user ID from the push token registration
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          const { error } = await supabase
+            .from(TABLES.users)
+            .update({ notification_preferences: newPrefs })
+            .eq('id', session.user.id);
+
+          if (error) {
+            console.error('[Notifications] Failed to persist preferences:', error);
+          }
+        }
+      } catch (err) {
+        console.error('[Notifications] Error persisting preferences:', err);
+      }
+    }
+
     console.log('[Notifications] Preferences updated:', newPrefs);
   },
 

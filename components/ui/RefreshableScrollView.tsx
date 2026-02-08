@@ -46,7 +46,7 @@ export function RefreshableScrollView({
           onRefresh={handleRefresh}
           tintColor={themeColors.purple}
           colors={[themeColors.purple, themeColors.coral]}
-          progressBackgroundColor={themeColors.cardBg}
+          progressBackgroundColor={themeColors.cardBackground}
           title={Platform.OS === 'ios' ? 'Pull to refresh' : undefined}
           titleColor={themeColors.textMuted}
         />

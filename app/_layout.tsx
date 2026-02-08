@@ -7,6 +7,8 @@ import { PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_
 import { useAuthStore } from '../stores/authStore';
 import { useThemeStore } from '../stores/themeStore';
 import { colors, getThemeColors } from '../constants/colors';
+import { AUTH_INIT_TIMEOUT_MS } from '../constants/config';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import AchievementCelebration from '../components/AchievementCelebration';
 
 export default function RootLayout() {
@@ -42,13 +44,13 @@ export default function RootLayout() {
     
     init();
     
-    // Safety timeout - if initialization takes more than 5 seconds, show the app anyway
+    // Safety timeout - if initialization takes too long, show the app anyway
     const timeout = setTimeout(() => {
       if (!isReady) {
         console.warn('[RootLayout] Initialization timeout, forcing ready state');
         setIsReady(true);
       }
-    }, 5000);
+    }, AUTH_INIT_TIMEOUT_MS);
     
     return () => clearTimeout(timeout);
   }, []);
@@ -63,7 +65,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <ErrorBoundary>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
@@ -76,10 +78,10 @@ export default function RootLayout() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(main)" />
       </Stack>
-      
+
       {/* Global Achievement Celebration Modal */}
       <AchievementCelebration />
-    </>
+    </ErrorBoundary>
   );
 }
 
