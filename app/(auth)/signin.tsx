@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/Input';
 import { useAuthStore } from '../../stores/authStore';
 import { colors } from '../../constants/colors';
 import { typography, fontFamilies } from '../../constants/typography';
+import { APP_VERSION } from '../../constants/config';
 
 export default function SignIn() {
   const { signIn } = useAuthStore();
@@ -95,6 +96,8 @@ export default function SignIn() {
             <Text style={styles.footerLink}>Sign Up</Text>
           </TouchableOpacity>
         </View>
+
+        <Text style={styles.version}>{APP_VERSION}</Text>
       </View>
     </SafeAreaView>
   );
@@ -174,5 +177,11 @@ const styles = StyleSheet.create({
   footerLink: {
     ...typography.body,
     color: colors.purple,
+  },
+  version: {
+    ...typography.bodySmall,
+    color: colors.textMuted,
+    textAlign: 'center',
+    paddingBottom: 12,
   },
 });
