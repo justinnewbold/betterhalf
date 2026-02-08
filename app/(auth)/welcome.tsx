@@ -1,13 +1,41 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/ui/Button';
+import { useDevStore } from '../../stores/devStore';
 import { colors } from '../../constants/colors';
 import { typography, fontFamilies } from '../../constants/typography';
+import { APP_VERSION } from '../../constants/config';
 
 export default function Welcome() {
+  const { devMode, setDevMode } = useDevStore();
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleVersionTap = useCallback(() => {
+    tapCountRef.current += 1;
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+
+    if (tapCountRef.current >= 3) {
+      tapCountRef.current = 0;
+      const next = !devMode;
+      setDevMode(next);
+      const msg = next ? 'Dev mode enabled — solo partner testing active' : 'Dev mode disabled';
+      if (Platform.OS === 'web') {
+        alert(msg);
+      } else {
+        Alert.alert('Dev Mode', msg);
+      }
+      return;
+    }
+
+    tapTimerRef.current = setTimeout(() => {
+      tapCountRef.current = 0;
+    }, 500);
+  }, [devMode, setDevMode]);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
@@ -50,6 +78,12 @@ export default function Welcome() {
             fullWidth
           />
         </View>
+
+        <TouchableOpacity onPress={handleVersionTap} activeOpacity={1}>
+          <Text style={[styles.version, devMode && styles.versionDev]}>
+            {APP_VERSION}{devMode ? ' (dev)' : ''}
+          </Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -112,7 +146,16 @@ const styles = StyleSheet.create({
   },
   buttons: {
     marginTop: 'auto',
-    marginBottom: 32,
+    marginBottom: 12,
     gap: 12,
+  },
+  version: {
+    ...typography.bodySmall,
+    color: colors.textMuted,
+    textAlign: 'center',
+    paddingBottom: 12,
+  },
+  versionDev: {
+    color: colors.coral,
   },
 });
