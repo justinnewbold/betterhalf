@@ -1,32 +1,51 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/ui/Button';
+import { useAuthStore } from '../../stores/authStore';
 import { useDevStore } from '../../stores/devStore';
 import { colors } from '../../constants/colors';
 import { typography, fontFamilies } from '../../constants/typography';
-import { APP_VERSION } from '../../constants/config';
+import { APP_VERSION, DEV_EMAIL, DEV_PASSWORD } from '../../constants/config';
 
 export default function Welcome() {
+  const { signIn } = useAuthStore();
   const { devMode, setDevMode } = useDevStore();
+  const [devLoading, setDevLoading] = useState(false);
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleVersionTap = useCallback(() => {
+  const handleVersionTap = useCallback(async () => {
     tapCountRef.current += 1;
     if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
 
     if (tapCountRef.current >= 3) {
       tapCountRef.current = 0;
-      const next = !devMode;
-      setDevMode(next);
-      const msg = next ? 'Dev mode enabled — solo partner testing active' : 'Dev mode disabled';
-      if (Platform.OS === 'web') {
-        alert(msg);
-      } else {
-        Alert.alert('Dev Mode', msg);
+
+      if (devMode) {
+        setDevMode(false);
+        const msg = 'Dev mode disabled';
+        Platform.OS === 'web' ? alert(msg) : Alert.alert('Dev Mode', msg);
+        return;
+      }
+
+      // Enable dev mode and auto-login
+      setDevMode(true);
+      setDevLoading(true);
+      try {
+        const result = await signIn(DEV_EMAIL, DEV_PASSWORD);
+        if (result.error) {
+          const errMsg = (result.error as any).message || 'Dev auto-login failed';
+          Platform.OS === 'web' ? alert(errMsg) : Alert.alert('Dev Mode', errMsg);
+          setDevLoading(false);
+        } else {
+          router.replace('/(auth)/invite');
+        }
+      } catch (err: any) {
+        Platform.OS === 'web' ? alert(err.message) : Alert.alert('Dev Mode', err.message);
+        setDevLoading(false);
       }
       return;
     }
@@ -34,7 +53,7 @@ export default function Welcome() {
     tapTimerRef.current = setTimeout(() => {
       tapCountRef.current = 0;
     }, 500);
-  }, [devMode, setDevMode]);
+  }, [devMode, setDevMode, signIn]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -79,9 +98,9 @@ export default function Welcome() {
           />
         </View>
 
-        <TouchableOpacity onPress={handleVersionTap} activeOpacity={1}>
+        <TouchableOpacity onPress={handleVersionTap} activeOpacity={1} disabled={devLoading}>
           <Text style={[styles.version, devMode && styles.versionDev]}>
-            {APP_VERSION}{devMode ? ' (dev)' : ''}
+            {devLoading ? 'Signing in...' : `${APP_VERSION}${devMode ? ' (dev)' : ''}`}
           </Text>
         </TouchableOpacity>
       </View>

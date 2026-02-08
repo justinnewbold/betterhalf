@@ -9,7 +9,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useDevStore } from '../../stores/devStore';
 import { colors } from '../../constants/colors';
 import { typography, fontFamilies } from '../../constants/typography';
-import { APP_VERSION } from '../../constants/config';
+import { APP_VERSION, DEV_EMAIL, DEV_PASSWORD } from '../../constants/config';
 
 export default function SignIn() {
   const { signIn } = useAuthStore();
@@ -22,21 +22,36 @@ export default function SignIn() {
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleVersionTap = useCallback(() => {
+  const handleVersionTap = useCallback(async () => {
     tapCountRef.current += 1;
     if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
 
     if (tapCountRef.current >= 3) {
       tapCountRef.current = 0;
-      const next = !devMode;
-      setDevMode(next);
-      const msg = next ? 'Dev mode enabled — solo partner testing active' : 'Dev mode disabled';
-      if (Platform.OS === 'web') {
-        // Alert.alert may not work well on web
-        setError(msg);
-        setTimeout(() => setError(''), 2000);
-      } else {
-        Alert.alert('Dev Mode', msg);
+
+      if (devMode) {
+        setDevMode(false);
+        const msg = 'Dev mode disabled';
+        Platform.OS === 'web' ? setError(msg) : Alert.alert('Dev Mode', msg);
+        if (Platform.OS === 'web') setTimeout(() => setError(''), 2000);
+        return;
+      }
+
+      // Enable dev mode and auto-login
+      setDevMode(true);
+      setLoading(true);
+      setError('');
+      try {
+        const result = await signIn(DEV_EMAIL, DEV_PASSWORD);
+        if (result.error) {
+          setError((result.error as any).message || 'Dev auto-login failed');
+          setLoading(false);
+        } else {
+          router.replace('/(auth)/invite');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Dev auto-login failed');
+        setLoading(false);
       }
       return;
     }
@@ -44,7 +59,7 @@ export default function SignIn() {
     tapTimerRef.current = setTimeout(() => {
       tapCountRef.current = 0;
     }, 500);
-  }, [devMode, setDevMode]);
+  }, [devMode, setDevMode, signIn]);
 
   const handleSignIn = async () => {
     if (!email.trim() || !password.trim()) {

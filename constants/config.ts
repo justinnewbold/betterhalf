@@ -46,6 +46,10 @@ export const PRESENCE_CHANNEL_PREFIX = 'couple:';
 // Disabled gradient colors (for disabled buttons)
 export const DISABLED_GRADIENT = ['#555', '#444'] as const;
 
+// Dev mode — test credentials for auto-login bypass
+export const DEV_EMAIL = 'justin@newbold.cloud';
+export const DEV_PASSWORD = 'test1234';
+
 // App version — starts at v0.01, increments by 0.01 each iteration
-// Current: iteration 107 → 107 × 0.01 = 1.07
-export const APP_VERSION = 'v1.07';
+// Current: iteration 108 → 108 × 0.01 = 1.08
+export const APP_VERSION = 'v1.08';
