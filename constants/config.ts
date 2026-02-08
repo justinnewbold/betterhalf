@@ -45,3 +45,7 @@ export const PRESENCE_CHANNEL_PREFIX = 'couple:';
 
 // Disabled gradient colors (for disabled buttons)
 export const DISABLED_GRADIENT = ['#555', '#444'] as const;
+
+// App version — starts at v0.01, increments by 0.01 each iteration
+// Current: iteration 106 → 106 × 0.01 = 1.06
+export const APP_VERSION = 'v1.06';

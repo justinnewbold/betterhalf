@@ -1,20 +1,50 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useAuthStore } from '../../stores/authStore';
+import { useDevStore } from '../../stores/devStore';
 import { colors } from '../../constants/colors';
 import { typography, fontFamilies } from '../../constants/typography';
+import { APP_VERSION } from '../../constants/config';
 
 export default function SignIn() {
   const { signIn } = useAuthStore();
+  const { devMode, setDevMode } = useDevStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleVersionTap = useCallback(() => {
+    tapCountRef.current += 1;
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+
+    if (tapCountRef.current >= 3) {
+      tapCountRef.current = 0;
+      const next = !devMode;
+      setDevMode(next);
+      const msg = next ? 'Dev mode enabled — solo partner testing active' : 'Dev mode disabled';
+      if (Platform.OS === 'web') {
+        // Alert.alert may not work well on web
+        setError(msg);
+        setTimeout(() => setError(''), 2000);
+      } else {
+        Alert.alert('Dev Mode', msg);
+      }
+      return;
+    }
+
+    tapTimerRef.current = setTimeout(() => {
+      tapCountRef.current = 0;
+    }, 500);
+  }, [devMode, setDevMode]);
 
   const handleSignIn = async () => {
     if (!email.trim() || !password.trim()) {
@@ -95,6 +125,12 @@ export default function SignIn() {
             <Text style={styles.footerLink}>Sign Up</Text>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity onPress={handleVersionTap} activeOpacity={1}>
+          <Text style={[styles.version, devMode && styles.versionDev]}>
+            {APP_VERSION}{devMode ? ' (dev)' : ''}
+          </Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -174,5 +210,14 @@ const styles = StyleSheet.create({
   footerLink: {
     ...typography.body,
     color: colors.purple,
+  },
+  version: {
+    ...typography.bodySmall,
+    color: colors.textMuted,
+    textAlign: 'center',
+    paddingBottom: 12,
+  },
+  versionDev: {
+    color: colors.coral,
   },
 });
