@@ -11,7 +11,9 @@
     "build:android": "eas build --platform android",
     "build:all": "eas build --platform all",
     "submit:ios": "eas submit --platform ios",
-    "submit:android": "eas submit --platform android"
+    "submit:android": "eas submit --platform android",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "dependencies": {
     "@expo-google-fonts/playfair-display": "^0.4.2",
@@ -40,8 +42,21 @@
     "zustand": "^5.0.10"
   },
   "devDependencies": {
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^13.3.3",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.1.0",
+    "jest": "^30.2.0",
+    "jest-expo": "^54.0.17",
+    "ts-jest": "^29.4.6",
     "typescript": "~5.9.2"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)/|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@supabase/.*|zustand)"
+    ],
+    "moduleFileExtensions": ["ts", "tsx", "js", "jsx"]
   },
   "private": true
 }

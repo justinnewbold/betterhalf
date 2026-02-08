@@ -29,6 +29,14 @@ const DEFAULT_OPTIONS = ['Option A', 'Option B', 'Option C', 'Option D'];
 const MAX_QUESTION_LENGTH = 200;
 const MAX_OPTION_LENGTH = 50;
 
+// Basic text sanitization to prevent XSS and clean up input
+function sanitizeText(text: string): string {
+  return text
+    .replace(/<[^>]*>/g, '') // Strip HTML tags
+    .replace(/&[#\w]+;/g, '') // Strip HTML entities
+    .trim();
+}
+
 export default function CustomQuestions() {
   const { user, userProfile } = useAuthStore();
   const { couple, partnerProfile } = useCoupleStore();
@@ -108,14 +116,30 @@ export default function CustomQuestions() {
   };
 
   const validateForm = (): boolean => {
-    if (!questionText.trim()) {
+    const sanitizedQuestion = sanitizeText(questionText);
+    if (!sanitizedQuestion) {
       Alert.alert('Missing Question', 'Please enter a question.');
       return false;
     }
 
-    const filledOptions = options.filter(o => o.trim().length > 0);
+    if (sanitizedQuestion.length < 5) {
+      Alert.alert('Question Too Short', 'Please enter a longer question (at least 5 characters).');
+      return false;
+    }
+
+    const filledOptions = options
+      .map(o => sanitizeText(o))
+      .filter(o => o.length > 0);
+
     if (filledOptions.length < 2) {
       Alert.alert('Missing Options', 'Please provide at least 2 answer options.');
+      return false;
+    }
+
+    // Check for duplicate options
+    const uniqueOptions = new Set(filledOptions.map(o => o.toLowerCase()));
+    if (uniqueOptions.size !== filledOptions.length) {
+      Alert.alert('Duplicate Options', 'Each answer option must be unique.');
       return false;
     }
 
@@ -134,14 +158,16 @@ export default function CustomQuestions() {
     }
 
     try {
-      const cleanOptions = options.filter(o => o.trim().length > 0);
+      const cleanOptions = options
+        .map(o => sanitizeText(o))
+        .filter(o => o.length > 0);
 
       if (editingQuestion) {
         // Update existing question
         const { error } = await supabase
           .from(TABLES.custom_questions)
           .update({
-            question: questionText.trim(),
+            question: sanitizeText(questionText),
             options: cleanOptions,
           })
           .eq('id', editingQuestion.id);
@@ -154,7 +180,7 @@ export default function CustomQuestions() {
           .from(TABLES.custom_questions)
           .insert({
             couple_id: couple.id,
-            question: questionText.trim(),
+            question: sanitizeText(questionText),
             options: cleanOptions,
             created_by: user.id,
             category: 'custom',

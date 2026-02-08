@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, Appearance } from 'react-native';
+import { THEME_STORAGE_KEY } from '../constants/config';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -12,8 +13,6 @@ interface ThemeState {
   toggleTheme: () => void;
   initialize: () => Promise<void>;
 }
-
-const STORAGE_KEY = 'betterhalf-theme-mode';
 
 const getSystemTheme = (): boolean => {
   try {
@@ -29,10 +28,10 @@ const saveThemeMode = async (mode: ThemeMode): Promise<void> => {
   try {
     if (Platform.OS === 'web') {
       if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(STORAGE_KEY, mode);
+        window.localStorage.setItem(THEME_STORAGE_KEY, mode);
       }
     } else {
-      await AsyncStorage.setItem(STORAGE_KEY, mode);
+      await AsyncStorage.setItem(THEME_STORAGE_KEY, mode);
     }
   } catch (error) {
     console.warn('[ThemeStore] Error saving theme:', error);
@@ -43,11 +42,11 @@ const loadThemeMode = async (): Promise<ThemeMode | null> => {
   try {
     if (Platform.OS === 'web') {
       if (typeof window !== 'undefined' && window.localStorage) {
-        return window.localStorage.getItem(STORAGE_KEY) as ThemeMode | null;
+        return window.localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode | null;
       }
       return null;
     }
-    return await AsyncStorage.getItem(STORAGE_KEY) as ThemeMode | null;
+    return await AsyncStorage.getItem(THEME_STORAGE_KEY) as ThemeMode | null;
   } catch (error) {
     console.warn('[ThemeStore] Error loading theme:', error);
     return null;

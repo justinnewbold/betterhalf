@@ -1,5 +1,6 @@
 import { getSupabase, TABLES, QuestionCategory } from './supabase';
 import type { FriendGameWithQuestion, FriendWithUser } from './supabase';
+import { DEFAULT_FRIEND_DAILY_LIMIT, DEFAULT_FRIEND_CATEGORIES, FRIEND_GAME_EXPIRY_HOURS } from '../constants/config';
 
 /**
  * Service layer for Friend Game functionality
@@ -13,7 +14,7 @@ import type { FriendGameWithQuestion, FriendWithUser } from './supabase';
 export async function getOrCreateTodaysGames(
   friendship: FriendWithUser,
   currentUserId: string
-): Promise<{ games: FriendGameWithQuestion[]; error: any }> {
+): Promise<{ games: FriendGameWithQuestion[]; error: unknown }> {
   const supabase = getSupabase();
   if (!supabase) return { games: [], error: 'No database connection' };
 
@@ -59,13 +60,13 @@ export async function getOrCreateTodaysGames(
  */
 async function createDailyGames(
   friendship: FriendWithUser
-): Promise<{ games: FriendGameWithQuestion[]; error: any }> {
+): Promise<{ games: FriendGameWithQuestion[]; error: unknown }> {
   const supabase = getSupabase();
   if (!supabase) return { games: [], error: 'No database connection' };
 
   const today = new Date().toISOString().split('T')[0];
-  const dailyLimit = friendship.daily_limit || 10;
-  const categories = friendship.preferred_categories || ['daily_life', 'fun', 'history'];
+  const dailyLimit = friendship.daily_limit || DEFAULT_FRIEND_DAILY_LIMIT;
+  const categories = friendship.preferred_categories || [...DEFAULT_FRIEND_CATEGORIES];
 
   // Determine audience based on relationship type
   const isFamily = ['family', 'sibling', 'parent', 'child', 'cousin'].includes(friendship.relationship_type);
@@ -96,7 +97,7 @@ async function createDailyGames(
       game_date: today,
       question_number: index + 1,
       status: 'waiting_both',
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+      expires_at: new Date(Date.now() + FRIEND_GAME_EXPIRY_HOURS * 60 * 60 * 1000).toISOString(),
     }));
 
     const { data: insertedGames, error: insertError } = await supabase
@@ -131,7 +132,7 @@ export async function getNextQuestion(
   friendshipId: string,
   currentUserId: string,
   friendship: FriendWithUser
-): Promise<{ game: FriendGameWithQuestion | null; error: any }> {
+): Promise<{ game: FriendGameWithQuestion | null; error: unknown }> {
   const supabase = getSupabase();
   if (!supabase) return { game: null, error: 'No database connection' };
 
@@ -179,7 +180,7 @@ export async function submitAnswer(
   answer: number,
   currentUserId: string,
   friendship: FriendWithUser
-): Promise<{ isMatch: boolean | null; error: any }> {
+): Promise<{ isMatch: boolean | null; error: unknown }> {
   const supabase = getSupabase();
   if (!supabase) return { isMatch: null, error: 'No database connection' };
 
@@ -205,7 +206,7 @@ export async function submitAnswer(
       return { isMatch: null, error: 'You have already answered this question' };
     }
 
-    const updates: any = {
+    const updates: Record<string, unknown> = {
       [isInitiator ? 'initiator_answer' : 'friend_answer']: answer,
       [isInitiator ? 'initiator_answered_at' : 'friend_answered_at']: new Date().toISOString(),
     };
@@ -294,7 +295,7 @@ export async function getDailyProgress(
 export async function getGameHistory(
   friendshipId: string,
   limit: number = 50
-): Promise<{ games: FriendGameWithQuestion[]; error: any }> {
+): Promise<{ games: FriendGameWithQuestion[]; error: unknown }> {
   const supabase = getSupabase();
   if (!supabase) return { games: [], error: 'No database connection' };
 
@@ -322,7 +323,7 @@ export async function getGameHistory(
 /**
  * Format raw game data into FriendGameWithQuestion
  */
-function formatGame(g: any): FriendGameWithQuestion {
+function formatGame(g: Record<string, any>): FriendGameWithQuestion {
   return {
     id: g.id,
     friendship_id: g.friendship_id,

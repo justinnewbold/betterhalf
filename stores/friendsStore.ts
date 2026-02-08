@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getSupabase, TABLES, generateInviteCode, QuestionCategory, RelationshipType, FriendStatus } from '../lib/supabase';
 import type { Tables, FriendWithUser, FriendGameWithQuestion } from '../lib/supabase';
+import { DEFAULT_FRIEND_DAILY_LIMIT, DEFAULT_FRIEND_CATEGORIES, INVITE_CODE_EXPIRY_DAYS } from '../constants/config';
 
 type Friend = Tables['friends'];
 type FriendGame = Tables['friend_games'];
@@ -18,17 +19,17 @@ interface FriendsState {
   
   // Actions
   fetchFriends: (userId: string) => Promise<void>;
-  createFriendInvite: (userId: string, relationshipType: RelationshipType, nickname?: string) => Promise<{ inviteCode: string | null; error: any }>;
-  acceptFriendInvite: (userId: string, inviteCode: string) => Promise<{ error: any }>;
-  acceptFriendRequest: (userId: string, friendshipId: string) => Promise<{ error: any }>; // NEW: Accept by friendship ID
-  declineFriendInvite: (friendshipId: string) => Promise<{ error: any }>;
-  removeFriend: (friendshipId: string) => Promise<{ error: any }>;
-  blockFriend: (friendshipId: string) => Promise<{ error: any }>;
-  updateFriendSettings: (friendshipId: string, updates: Partial<Friend>) => Promise<{ error: any }>;
+  createFriendInvite: (userId: string, relationshipType: RelationshipType, nickname?: string) => Promise<{ inviteCode: string | null; error: unknown }>;
+  acceptFriendInvite: (userId: string, inviteCode: string) => Promise<{ error: unknown }>;
+  acceptFriendRequest: (userId: string, friendshipId: string) => Promise<{ error: unknown }>; // NEW: Accept by friendship ID
+  declineFriendInvite: (friendshipId: string) => Promise<{ error: unknown }>;
+  removeFriend: (friendshipId: string) => Promise<{ error: unknown }>;
+  blockFriend: (friendshipId: string) => Promise<{ error: unknown }>;
+  updateFriendSettings: (friendshipId: string, updates: Partial<Friend>) => Promise<{ error: unknown }>;
   
   // Game Actions
   fetchTodaysGames: (friendshipId: string) => Promise<FriendGameWithQuestion[]>;
-  submitAnswer: (gameId: string, answer: number, isInitiator: boolean) => Promise<{ error: any }>;
+  submitAnswer: (gameId: string, answer: number, isInitiator: boolean) => Promise<{ error: unknown }>;
   
   // Utilities
   getFriendById: (friendshipId: string) => FriendWithUser | undefined;
@@ -94,8 +95,8 @@ export const useFriendsStore = create<FriendsState>((set, get) => ({
           relationship_type: f.relationship_type as RelationshipType,
           status: f.status as FriendStatus,
           invite_code: f.invite_code,
-          preferred_categories: f.preferred_categories || ['daily_life', 'fun', 'deep_talks'],
-          daily_limit: f.daily_limit || 10,
+          preferred_categories: f.preferred_categories || [...DEFAULT_FRIEND_CATEGORIES],
+          daily_limit: f.daily_limit || DEFAULT_FRIEND_DAILY_LIMIT,
           created_at: f.created_at,
           accepted_at: f.accepted_at,
           friend_user: friendUser ? {
@@ -151,7 +152,7 @@ export const useFriendsStore = create<FriendsState>((set, get) => ({
     try {
       const inviteCode = generateInviteCode();
       const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7); // 7 days to accept
+      expiresAt.setDate(expiresAt.getDate() + INVITE_CODE_EXPIRY_DAYS);
 
       const { data, error } = await supabase
         .from(TABLES.friends)
@@ -461,7 +462,7 @@ export const useFriendsStore = create<FriendsState>((set, get) => ({
       return { error: fetchError || 'Game not found' };
     }
 
-    const updates: any = {
+    const updates: Record<string, unknown> = {
       [isInitiator ? 'initiator_answer' : 'friend_answer']: answer,
       [isInitiator ? 'initiator_answered_at' : 'friend_answered_at']: new Date().toISOString(),
     };

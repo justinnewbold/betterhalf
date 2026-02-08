@@ -7,12 +7,12 @@ function TabIcon({ icon, label, focused, isDark }: { icon: string; label: string
   const themeColors = getThemeColors(isDark);
   
   return (
-    <View style={styles.tabItem}>
+    <View style={styles.tabItem} accessibilityLabel={label} accessibilityRole="tab" accessibilityState={{ selected: focused }}>
       <View style={styles.iconContainer}>
         <Text style={[styles.tabIcon, focused && styles.tabIconFocused]}>{icon}</Text>
       </View>
       <Text style={[
-        styles.tabLabel, 
+        styles.tabLabel,
         { color: themeColors.textMuted },
         focused && { color: themeColors.coral }
       ]}>{label}</Text>
@@ -42,12 +42,14 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
+          tabBarAccessibilityLabel: 'Home',
           tabBarIcon: ({ focused }) => <TabIcon icon="🏠" label="Home" focused={focused} isDark={isDark} />,
         }}
       />
       <Tabs.Screen
         name="play"
         options={{
+          tabBarAccessibilityLabel: 'Play',
           tabBarIcon: ({ focused }) => <TabIcon icon="🎮" label="Play" focused={focused} isDark={isDark} />,
         }}
       />
@@ -61,12 +63,14 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="stats"
         options={{
+          tabBarAccessibilityLabel: 'Stats',
           tabBarIcon: ({ focused }) => <TabIcon icon="📊" label="Stats" focused={focused} isDark={isDark} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
+          tabBarAccessibilityLabel: 'Profile',
           tabBarIcon: ({ focused }) => <TabIcon icon="👤" label="Profile" focused={focused} isDark={isDark} />,
         }}
       />

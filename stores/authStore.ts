@@ -6,16 +6,16 @@ type User = Tables['users'];
 
 interface AuthState {
   user: User | null;
-  session: any | null;
+  session: { user: { id: string; email?: string } } | null;
   isLoading: boolean;
   isInitialized: boolean;
   error: string | null;
   
   initialize: () => Promise<void>;
-  signUp: (email: string, password: string, displayName: string) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, displayName: string) => Promise<{ error: unknown }>;
+  signIn: (email: string, password: string) => Promise<{ error: unknown }>;
   signOut: () => Promise<void>;
-  updateProfile: (updates: Partial<User>) => Promise<{ error: any }>;
+  updateProfile: (updates: Partial<User>) => Promise<{ error: unknown }>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({

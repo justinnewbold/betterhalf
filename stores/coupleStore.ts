@@ -16,10 +16,10 @@ interface CoupleState {
   lastFetchUserId: string | null;
   
   fetchCouple: (userId: string) => Promise<void>;
-  createCouple: (userId: string) => Promise<{ inviteCode: string | null; error: any }>;
-  joinCouple: (userId: string, inviteCode: string) => Promise<{ error: any }>;
-  updateCouple: (updates: Partial<Couple>) => Promise<{ error: any }>;
-  updateCategoryPreferences: (categories: QuestionCategory[]) => Promise<{ error: any }>;
+  createCouple: (userId: string) => Promise<{ inviteCode: string | null; error: unknown }>;
+  joinCouple: (userId: string, inviteCode: string) => Promise<{ error: unknown }>;
+  updateCouple: (updates: Partial<Couple>) => Promise<{ error: unknown }>;
+  updateCategoryPreferences: (categories: QuestionCategory[]) => Promise<{ error: unknown }>;
   reset: () => void;
 }
 
@@ -211,9 +211,9 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
 
       console.log('[CoupleStore] Successfully joined couple!');
       return { error: null };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[CoupleStore] Join couple exception:', error);
-      return { error: { message: error.message || 'Unknown error joining couple' } };
+      return { error: { message: error instanceof Error ? error.message : 'Unknown error joining couple' } };
     }
   },
 

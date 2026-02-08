@@ -1,10 +1,11 @@
 import { Stack } from 'expo-router';
 import { colors } from '../../constants/colors';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
 import AchievementCelebration from '../../components/AchievementCelebration';
 
 export default function MainLayout() {
   return (
-    <>
+    <ErrorBoundary>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -30,6 +31,6 @@ export default function MainLayout() {
       
       {/* Global Achievement Celebration Modal */}
       <AchievementCelebration />
-    </>
+    </ErrorBoundary>
   );
 }

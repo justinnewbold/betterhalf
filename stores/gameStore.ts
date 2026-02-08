@@ -1,20 +1,10 @@
 import { create } from 'zustand';
-import { supabase, TABLES, QuestionCategory } from '../lib/supabase';
+import { getSupabase, TABLES, QuestionCategory } from '../lib/supabase';
 import type { Tables } from '../lib/supabase';
+import { loadGameQuestions, GameQuestion } from '../lib/questionService';
+import { DAILY_SYNC_QUESTIONS, DATE_NIGHT_QUESTIONS } from '../constants/config';
 
-type Question = Tables['questions'];
-type CustomQuestion = Tables['custom_questions'];
 type GameSession = Tables['game_sessions'];
-type Answer = Tables['answers'];
-
-// Union type for both regular and custom questions
-type GameQuestion = {
-  id: string;
-  category: QuestionCategory;
-  question: string;
-  options: string[];
-  isCustom?: boolean;
-};
 
 type GameMode = 'daily_sync' | 'date_night' | 'party_battle';
 
@@ -26,10 +16,10 @@ interface GameState {
   partnerAnswers: Record<string, number>;
   isLoading: boolean;
   
-  startGame: (coupleId: string, mode: GameMode) => Promise<{ error: any }>;
+  startGame: (coupleId: string, mode: GameMode) => Promise<{ error: unknown }>;
   loadQuestions: (coupleId: string, categories?: QuestionCategory[]) => Promise<void>;
-  submitAnswer: (questionId: string, userId: string, selectedOption: number) => Promise<{ error: any }>;
-  completeGame: () => Promise<{ score: number; matched: number; error: any }>;
+  submitAnswer: (questionId: string, userId: string, selectedOption: number) => Promise<{ error: unknown }>;
+  completeGame: () => Promise<{ score: number; matched: number; error: unknown }>;
   nextQuestion: () => void;
   resetGame: () => void;
 }
@@ -44,8 +34,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   startGame: async (coupleId, mode) => {
     try {
+      const supabase = getSupabase();
       if (!supabase) return { error: { message: 'Supabase not configured' } };
-      
+
       set({ isLoading: true });
 
       const { data: session, error } = await supabase
@@ -53,7 +44,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         .insert({
           couple_id: coupleId,
           mode,
-          total_questions: mode === 'daily_sync' ? 5 : 10,
+          total_questions: mode === 'daily_sync' ? DAILY_SYNC_QUESTIONS : DATE_NIGHT_QUESTIONS,
         })
         .select()
         .single();
@@ -83,76 +74,20 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   loadQuestions: async (coupleId, categories) => {
     try {
-      if (!supabase) return;
-      
       const { currentSession } = get();
-      const limit = currentSession?.total_questions || 5;
+      const limit = currentSession?.total_questions || DAILY_SYNC_QUESTIONS;
 
-      // Load regular questions
-      let regularQuery = supabase
-        .from(TABLES.questions)
-        .select('*')
-        .eq('is_active', true);
+      const { questions, error } = await loadGameQuestions({
+        coupleId,
+        categories,
+        limit,
+      });
 
-      // Filter by categories if provided (exclude 'custom' from regular query)
-      const regularCategories = categories?.filter(c => c !== 'custom') || [];
-      if (regularCategories.length > 0) {
-        console.log('[GameStore] Loading questions for categories:', regularCategories);
-        regularQuery = regularQuery.in('category', regularCategories);
+      if (error) {
+        console.error('[GameStore] Load questions error:', error);
       }
 
-      const { data: regularQuestions, error: regularError } = await regularQuery.limit(limit * 2);
-
-      if (regularError) {
-        console.error('[GameStore] Load regular questions error:', regularError);
-      }
-
-      // Load custom questions if 'custom' category is enabled or no categories specified
-      let customQuestions: CustomQuestion[] = [];
-      const includeCustom = !categories || categories.length === 0 || categories.includes('custom');
-      
-      if (includeCustom && coupleId) {
-        console.log('[GameStore] Loading custom questions for couple:', coupleId);
-        const { data: customData, error: customError } = await supabase
-          .from(TABLES.custom_questions)
-          .select('*')
-          .eq('couple_id', coupleId)
-          .eq('is_active', true);
-
-        if (customError) {
-          console.error('[GameStore] Load custom questions error:', customError);
-        } else {
-          customQuestions = customData || [];
-          console.log('[GameStore] Found', customQuestions.length, 'custom questions');
-        }
-      }
-
-      // Transform questions to unified format
-      const transformedRegular: GameQuestion[] = (regularQuestions || []).map(q => ({
-        id: q.id,
-        category: q.category as QuestionCategory,
-        question: q.question,
-        options: q.options as string[],
-        isCustom: false,
-      }));
-
-      const transformedCustom: GameQuestion[] = customQuestions.map(q => ({
-        id: q.id,
-        category: 'custom' as QuestionCategory,
-        question: q.question,
-        options: q.options as string[],
-        isCustom: true,
-      }));
-
-      // Combine and shuffle all questions
-      const allQuestions = [...transformedRegular, ...transformedCustom];
-      const shuffled = allQuestions.sort(() => Math.random() - 0.5).slice(0, limit);
-      
-      console.log('[GameStore] Loaded', shuffled.length, 'total questions (',
-        transformedCustom.length, 'custom,',
-        transformedRegular.length, 'regular)');
-      
-      set({ questions: shuffled });
+      set({ questions });
     } catch (error) {
       console.error('[GameStore] Load questions exception:', error);
     }
@@ -160,8 +95,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   submitAnswer: async (questionId, userId, selectedOption) => {
     try {
+      const supabase = getSupabase();
       if (!supabase) return { error: { message: 'Supabase not configured' } };
-      
+
       const { currentSession, myAnswers } = get();
       if (!currentSession) return { error: { message: 'No active session' } };
 
@@ -186,8 +122,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   completeGame: async () => {
     try {
+      const supabase = getSupabase();
       if (!supabase) return { score: 0, matched: 0, error: { message: 'Supabase not configured' } };
-      
+
       const { currentSession, myAnswers, partnerAnswers, questions } = get();
       if (!currentSession) return { score: 0, matched: 0, error: { message: 'No active session' } };
 

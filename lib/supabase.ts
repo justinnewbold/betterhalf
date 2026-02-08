@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { INVITE_CODE_LENGTH, INVITE_CODE_CHARS } from '../constants/config';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -74,7 +75,8 @@ const createSupabaseClient = (): SupabaseClient | null => {
     
     _supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        storage: storage as any,
+        // @ts-expect-error: Web storage adapter uses sync methods while Supabase types expect async
+        storage,
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: Platform.OS === 'web',
@@ -362,12 +364,11 @@ export interface FriendGameWithQuestion {
   };
 }
 
-// Helper to generate 8-character invite code
+// Helper to generate invite code
 export function generateInviteCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluded confusing chars (0, O, I, 1)
   let code = '';
-  for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  for (let i = 0; i < INVITE_CODE_LENGTH; i++) {
+    code += INVITE_CODE_CHARS.charAt(Math.floor(Math.random() * INVITE_CODE_CHARS.length));
   }
   return code;
 }

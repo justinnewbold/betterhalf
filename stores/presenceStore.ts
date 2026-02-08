@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getSupabase } from '../lib/supabase';
+import { PRESENCE_CHANNEL_PREFIX } from '../constants/config';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 type PresenceState = 'online' | 'away' | 'playing' | 'offline';
@@ -49,7 +50,7 @@ export const usePresenceStore = create<PresenceStore>((set, get) => ({
 
     console.log('[Presence] Initializing for couple:', coupleId);
 
-    const channel = supabase.channel(`couple:${coupleId}`, {
+    const channel = supabase.channel(`${PRESENCE_CHANNEL_PREFIX}${coupleId}`, {
       config: {
         presence: {
           key: userId,
