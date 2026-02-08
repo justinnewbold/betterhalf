@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getSupabase, TABLES, QuestionCategory } from '../lib/supabase';
 import type { Tables } from '../lib/supabase';
+import { useDevStore } from './devStore';
 
 type Couple = Tables['couples'];
 type CoupleStats = Tables['couple_stats'];
@@ -180,7 +181,7 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
       }
 
       // Check if user is trying to join their own couple
-      if (couple.partner_a_id === userId) {
+      if (couple.partner_a_id === userId && !useDevStore.getState().devMode) {
         return { error: { message: 'You cannot join your own couple!' } };
       }
 
