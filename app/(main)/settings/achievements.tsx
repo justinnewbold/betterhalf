@@ -80,38 +80,38 @@ export default function AchievementsScreen() {
       >
         <View style={[
           styles.iconContainer, 
-          unlocked && { backgroundColor: themeColors.primary + '20' },
-          !unlocked && { backgroundColor: themeColors.surface },
+          unlocked && { backgroundColor: themeColors.coral + '20' },
+          !unlocked && { backgroundColor: themeColors.cardBackground },
         ]}>
           <Text style={styles.icon}>{achievement.icon || '🏆'}</Text>
         </View>
         <View style={styles.achievementInfo}>
           <Text style={[
             styles.achievementTitle, 
-            { color: unlocked ? themeColors.text : themeColors.textMuted },
+            { color: unlocked ? themeColors.textPrimary : themeColors.textPrimaryMuted },
           ]}>
             {achievement.name}
           </Text>
           <Text style={[
             styles.achievementDesc, 
-            { color: unlocked ? themeColors.textSecondary : themeColors.textMuted },
+            { color: unlocked ? themeColors.textPrimarySecondary : themeColors.textPrimaryMuted },
           ]}>
             {achievement.description}
           </Text>
           {!unlocked && (
             <View style={styles.progressContainer}>
-              <View style={[styles.progressBar, { backgroundColor: themeColors.surface }]}>
+              <View style={[styles.progressBar, { backgroundColor: themeColors.cardBackground }]}>
                 <View 
                   style={[
                     styles.progressFill, 
                     { 
                       width: `${Math.min(progress * 100, 100)}%`,
-                      backgroundColor: themeColors.primary,
+                      backgroundColor: themeColors.coral,
                     },
                   ]} 
                 />
               </View>
-              <Text style={[styles.progressText, { color: themeColors.textMuted }]}>
+              <Text style={[styles.progressText, { color: themeColors.textPrimaryMuted }]}>
                 {Math.min(currentValue, achievement.requirement_value)}/{achievement.requirement_value}
               </Text>
             </View>
@@ -128,7 +128,7 @@ export default function AchievementsScreen() {
     if (items.length === 0) return null;
     return (
       <>
-        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>{title}</Text>
+        <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>{title}</Text>
         <Card style={styles.achievementsCard}>
           {items.map(renderAchievement)}
         </Card>
@@ -142,7 +142,7 @@ export default function AchievementsScreen() {
         title: 'Achievements', 
         headerShown: true,
         headerStyle: { backgroundColor: themeColors.background },
-        headerTintColor: themeColors.text,
+        headerTintColor: themeColors.textPrimary,
       }} />
       
       <ScrollView 
@@ -154,43 +154,43 @@ export default function AchievementsScreen() {
       >
         {/* Summary Card */}
         <Card style={styles.summaryCard}>
-          <Text style={[styles.summaryTitle, { color: themeColors.text }]}>🏆 Your Progress</Text>
+          <Text style={[styles.summaryTitle, { color: themeColors.textPrimary }]}>🏆 Your Progress</Text>
           <View style={styles.summaryStats}>
             <View style={styles.summaryStat}>
-              <Text style={[styles.summaryNumber, { color: themeColors.primary }]}>
+              <Text style={[styles.summaryNumber, { color: themeColors.coral }]}>
                 {unlockedCount}
               </Text>
-              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>
+              <Text style={[styles.summaryLabel, { color: themeColors.textPrimarySecondary }]}>
                 Unlocked
               </Text>
             </View>
-            <View style={[styles.summaryDivider, { backgroundColor: themeColors.border }]} />
+            <View style={[styles.summaryDivider, { backgroundColor: themeColors.cardBorder }]} />
             <View style={styles.summaryStat}>
-              <Text style={[styles.summaryNumber, { color: themeColors.textMuted }]}>
+              <Text style={[styles.summaryNumber, { color: themeColors.textPrimaryMuted }]}>
                 {achievements.length - unlockedCount}
               </Text>
-              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>
+              <Text style={[styles.summaryLabel, { color: themeColors.textPrimarySecondary }]}>
                 Remaining
               </Text>
             </View>
           </View>
           
           {/* Current Stats Mini Display */}
-          <View style={[styles.miniStats, { borderTopColor: themeColors.border }]}>
+          <View style={[styles.miniStats, { borderTopColor: themeColors.cardBorder }]}>
             <View style={styles.miniStat}>
               <Text style={styles.miniIcon}>🔥</Text>
-              <Text style={[styles.miniValue, { color: themeColors.text }]}>{currentStreak}</Text>
-              <Text style={[styles.miniLabel, { color: themeColors.textMuted }]}>Streak</Text>
+              <Text style={[styles.miniValue, { color: themeColors.textPrimary }]}>{currentStreak}</Text>
+              <Text style={[styles.miniLabel, { color: themeColors.textPrimaryMuted }]}>Streak</Text>
             </View>
             <View style={styles.miniStat}>
               <Text style={styles.miniIcon}>🎮</Text>
-              <Text style={[styles.miniValue, { color: themeColors.text }]}>{totalGames}</Text>
-              <Text style={[styles.miniLabel, { color: themeColors.textMuted }]}>Games</Text>
+              <Text style={[styles.miniValue, { color: themeColors.textPrimary }]}>{totalGames}</Text>
+              <Text style={[styles.miniLabel, { color: themeColors.textPrimaryMuted }]}>Games</Text>
             </View>
             <View style={styles.miniStat}>
               <Text style={styles.miniIcon}>💕</Text>
-              <Text style={[styles.miniValue, { color: themeColors.text }]}>{totalMatches}</Text>
-              <Text style={[styles.miniLabel, { color: themeColors.textMuted }]}>Matches</Text>
+              <Text style={[styles.miniValue, { color: themeColors.textPrimary }]}>{totalMatches}</Text>
+              <Text style={[styles.miniLabel, { color: themeColors.textPrimaryMuted }]}>Matches</Text>
             </View>
           </View>
         </Card>

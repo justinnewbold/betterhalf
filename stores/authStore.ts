@@ -149,9 +149,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signOut: async () => {
     const supabase = getSupabase();
     if (!supabase) return;
-    
+
     console.log('[AuthStore] Signing out...');
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('[AuthStore] Sign out error:', err);
+    }
+    // Always clear local state, even if remote sign-out failed
     set({ user: null, session: null });
   },
 
@@ -168,7 +173,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', user.id);
 
-      if (!error) set({ user: { ...user, ...updates } });
+      if (!error) {
+        set(state => ({ user: state.user ? { ...state.user, ...updates } : state.user }));
+      }
       return { error };
     } catch (error) {
       return { error };

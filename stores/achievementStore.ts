@@ -167,13 +167,14 @@ export const useAchievementStore = create<AchievementState>((set, get) => ({
   },
 
   getProgress: (achievement, stats) => {
+    const req = achievement.requirement_value;
     switch (achievement.requirement_type) {
       case 'streak':
-        return Math.min(stats.currentStreak / achievement.requirement_value, 1);
+        return req > 0 ? Math.min(stats.currentStreak / req, 1) : 0;
       case 'games':
-        return Math.min(stats.totalGames / achievement.requirement_value, 1);
+        return req > 0 ? Math.min(stats.totalGames / req, 1) : 0;
       case 'matches':
-        return Math.min(stats.totalMatches / achievement.requirement_value, 1);
+        return req > 0 ? Math.min(stats.totalMatches / req, 1) : 0;
       case 'special':
         if (achievement.name === 'First Match') return stats.totalMatches > 0 ? 1 : 0;
         return 0;

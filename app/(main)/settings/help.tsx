@@ -157,7 +157,7 @@ export default function HelpScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.darkBg,
   },
   scrollView: {
     flex: 1,
@@ -174,17 +174,17 @@ const styles = StyleSheet.create({
   },
   quickHelpTitle: {
     ...typography.h2,
-    color: colors.text,
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   quickHelpText: {
     ...typography.body,
-    color: colors.textSecondary,
+    color: colors.textPrimarySecondary,
     textAlign: 'center',
     marginBottom: 16,
   },
   emailButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.coral,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...typography.h3,
-    color: colors.text,
+    color: colors.textPrimary,
     marginBottom: 12,
     marginTop: 8,
   },
@@ -213,13 +213,13 @@ const styles = StyleSheet.create({
   faqQuestion: {
     ...typography.body,
     fontFamily: fontFamilies.semiBold,
-    color: colors.text,
+    color: colors.textPrimary,
     flex: 1,
     paddingRight: 12,
   },
   faqToggle: {
     fontSize: 24,
-    color: colors.primary,
+    color: colors.coral,
     fontWeight: '300',
   },
   faqAnswerContainer: {
@@ -228,12 +228,12 @@ const styles = StyleSheet.create({
   },
   faqAnswer: {
     ...typography.body,
-    color: colors.textSecondary,
+    color: colors.textPrimarySecondary,
     lineHeight: 22,
   },
   divider: {
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: colors.cardDarkBorder,
     marginHorizontal: 16,
   },
   contactCard: {
@@ -256,15 +256,15 @@ const styles = StyleSheet.create({
   contactTitle: {
     ...typography.body,
     fontFamily: fontFamilies.semiBold,
-    color: colors.text,
+    color: colors.textPrimary,
   },
   contactDesc: {
     ...typography.caption,
-    color: colors.textSecondary,
+    color: colors.textPrimarySecondary,
   },
   contactArrow: {
     fontSize: 24,
-    color: colors.textMuted,
+    color: colors.textPrimaryMuted,
   },
   infoCard: {
     padding: 24,
@@ -272,11 +272,11 @@ const styles = StyleSheet.create({
   },
   infoTitle: {
     ...typography.h3,
-    color: colors.text,
+    color: colors.textPrimary,
   },
   infoVersion: {
     ...typography.caption,
-    color: colors.textMuted,
+    color: colors.textPrimaryMuted,
     marginTop: 4,
   },
   infoLinks: {
@@ -286,10 +286,10 @@ const styles = StyleSheet.create({
   },
   infoLink: {
     ...typography.caption,
-    color: colors.primary,
+    color: colors.coral,
   },
   infoDot: {
-    color: colors.textMuted,
+    color: colors.textPrimaryMuted,
     marginHorizontal: 8,
   },
   bottomPadding: {

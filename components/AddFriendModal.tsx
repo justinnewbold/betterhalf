@@ -293,7 +293,7 @@ export default function AddFriendModal({ visible, onClose }: AddFriendModalProps
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.darkBg,
   },
   header: {
     flexDirection: 'row',

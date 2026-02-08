@@ -94,7 +94,7 @@ export default function AchievementCelebration() {
       glowAnim.setValue(0);
 
       // Orchestrate entrance
-      Animated.sequence([
+      const entranceAnim = Animated.sequence([
         // Fade in backdrop
         Animated.timing(opacityAnim, {
           toValue: 1,
@@ -123,10 +123,11 @@ export default function AchievementCelebration() {
             useNativeDriver: true,
           }),
         ]),
-      ]).start();
+      ]);
+      entranceAnim.start();
 
       // Pulsing glow loop
-      Animated.loop(
+      const glowLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(glowAnim, {
             toValue: 1,
@@ -141,7 +142,13 @@ export default function AchievementCelebration() {
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      glowLoop.start();
+
+      return () => {
+        entranceAnim.stop();
+        glowLoop.stop();
+      };
     }
   }, [isVisible]);
 
@@ -176,7 +183,7 @@ export default function AchievementCelebration() {
           style={[
             styles.card,
             { 
-              backgroundColor: themeColors.card,
+              backgroundColor: themeColors.cardBackground,
               transform: [{ scale: scaleAnim }],
             },
           ]}
@@ -199,26 +206,26 @@ export default function AchievementCelebration() {
             <Text style={styles.badgeIcon}>{achievement.icon || '🏆'}</Text>
           </Animated.View>
 
-          <Text style={[styles.unlockLabel, { color: themeColors.primary }]}>
+          <Text style={[styles.unlockLabel, { color: themeColors.coral }]}>
             Achievement Unlocked!
           </Text>
 
-          <Text style={[styles.achievementName, { color: themeColors.text }]}>
+          <Text style={[styles.achievementName, { color: themeColors.textPrimary }]}>
             {achievement.name}
           </Text>
 
-          <Text style={[styles.achievementDesc, { color: themeColors.textSecondary }]}>
+          <Text style={[styles.achievementDesc, { color: themeColors.textPrimarySecondary }]}>
             {achievement.description}
           </Text>
 
           {newlyUnlocked.length > 1 && (
-            <Text style={[styles.moreText, { color: themeColors.textMuted }]}>
+            <Text style={[styles.moreText, { color: themeColors.textPrimaryMuted }]}>
               +{newlyUnlocked.length - 1} more achievement{newlyUnlocked.length > 2 ? 's' : ''} unlocked!
             </Text>
           )}
 
           <TouchableOpacity
-            style={[styles.dismissButton, { backgroundColor: themeColors.primary }]}
+            style={[styles.dismissButton, { backgroundColor: themeColors.coral }]}
             onPress={dismissCelebration}
             activeOpacity={0.8}
           >

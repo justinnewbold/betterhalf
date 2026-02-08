@@ -92,6 +92,8 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   },
 
   initialize: async () => {
+    if (get().isHydrated) return; // Guard against re-initialization (prevents listener accumulation)
+
     try {
       // Load saved theme mode
       const savedMode = await loadThemeMode();

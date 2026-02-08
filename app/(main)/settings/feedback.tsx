@@ -121,7 +121,7 @@ export default function FeedbackScreen() {
               <TextInput
                 style={styles.messageInput}
                 placeholder={selectedOption?.placeholder}
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={colors.textPrimaryMuted}
                 value={message}
                 onChangeText={setMessage}
                 multiline
@@ -166,7 +166,7 @@ export default function FeedbackScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.darkBg,
   },
   scrollView: {
     flex: 1,
@@ -182,18 +182,18 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...typography.h2,
-    color: colors.text,
+    color: colors.textPrimary,
     textAlign: 'center',
     marginBottom: 8,
   },
   headerSubtitle: {
     ...typography.body,
-    color: colors.textSecondary,
+    color: colors.textPrimarySecondary,
     textAlign: 'center',
   },
   sectionTitle: {
     ...typography.h3,
-    color: colors.text,
+    color: colors.textPrimary,
     marginBottom: 12,
   },
   typeGrid: {
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   },
   typeCard: {
     width: '47%',
-    backgroundColor: colors.card,
+    backgroundColor: colors.cardDark,
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
@@ -212,8 +212,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   typeCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary + '10',
+    borderColor: colors.coral,
+    backgroundColor: colors.coral + '10',
   },
   typeIcon: {
     fontSize: 32,
@@ -222,11 +222,11 @@ const styles = StyleSheet.create({
   typeLabel: {
     ...typography.body,
     fontFamily: fontFamilies.semiBold,
-    color: colors.text,
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   typeLabelSelected: {
-    color: colors.primary,
+    color: colors.coral,
   },
   messageSection: {
     marginBottom: 16,
@@ -237,13 +237,13 @@ const styles = StyleSheet.create({
   },
   messageInput: {
     ...typography.body,
-    color: colors.text,
+    color: colors.textPrimary,
     padding: 16,
     minHeight: 150,
   },
   charCount: {
     ...typography.caption,
-    color: colors.textMuted,
+    color: colors.textPrimaryMuted,
     textAlign: 'right',
     marginTop: 8,
   },
@@ -258,17 +258,17 @@ const styles = StyleSheet.create({
   alternativeTitle: {
     ...typography.body,
     fontFamily: fontFamilies.semiBold,
-    color: colors.text,
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   alternativeText: {
     ...typography.caption,
-    color: colors.textSecondary,
+    color: colors.textPrimarySecondary,
     marginBottom: 4,
   },
   alternativeEmail: {
     ...typography.body,
-    color: colors.primary,
+    color: colors.coral,
     fontFamily: fontFamilies.semiBold,
   },
   bottomPadding: {

@@ -98,7 +98,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const supabase = getSupabase();
       if (!supabase) return { error: { message: 'Supabase not configured' } };
 
-      const { currentSession, myAnswers } = get();
+      const { currentSession } = get();
       if (!currentSession) return { error: { message: 'No active session' } };
 
       const { error } = await supabase
@@ -111,7 +111,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         });
 
       if (!error) {
-        set({ myAnswers: { ...myAnswers, [questionId]: selectedOption } });
+        set(state => ({ myAnswers: { ...state.myAnswers, [questionId]: selectedOption } }));
       }
 
       return { error };
@@ -138,7 +138,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
       });
 
-      const score = Math.round((matched / questions.length) * 100);
+      const score = questions.length > 0 ? Math.round((matched / questions.length) * 100) : 0;
 
       const { error } = await supabase
         .from(TABLES.game_sessions)

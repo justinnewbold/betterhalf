@@ -21,6 +21,8 @@ interface PresenceStore {
   partnerCurrentScreen: string | null;
   channel: RealtimeChannel | null;
   isConnected: boolean;
+  myUserId: string | null;
+  myDisplayName: string | null;
   initializePresence: (userId: string, coupleId: string, displayName: string) => void;
   updateMyState: (state: PresenceState, screen?: string) => void;
   disconnect: () => void;
@@ -35,6 +37,8 @@ export const usePresenceStore = create<PresenceStore>((set, get) => ({
   partnerCurrentScreen: null,
   channel: null,
   isConnected: false,
+  myUserId: null,
+  myDisplayName: null,
 
   initializePresence: (userId, coupleId, displayName) => {
     const supabase = getSupabase();
@@ -108,21 +112,23 @@ export const usePresenceStore = create<PresenceStore>((set, get) => ({
           current_screen: 'home',
           last_seen: new Date().toISOString(),
         });
-        set({ isConnected: true, myState: 'online' });
+        set({ isConnected: true, myState: 'online', myUserId: userId, myDisplayName: displayName });
       }
     });
 
-    set({ channel });
+    set({ channel, myUserId: userId, myDisplayName: displayName });
   },
 
   updateMyState: async (state, screen) => {
-    const { channel, currentScreen } = get();
+    const { channel, currentScreen, myUserId, myDisplayName } = get();
     if (!channel) return;
 
     const newScreen = screen || currentScreen;
-    
+
     try {
       await channel.track({
+        user_id: myUserId,
+        display_name: myDisplayName,
         state,
         current_screen: newScreen,
         last_seen: new Date().toISOString(),

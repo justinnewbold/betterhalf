@@ -105,7 +105,7 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
       }
     } catch (error) {
       console.error('[CoupleStore] Fetch couple exception:', error);
-      set({ couple: null, isLoading: false, hasFetched: true });
+      set({ couple: null, partnerProfile: null, stats: null, streak: null, isLoading: false, hasFetched: true });
     }
   },
 
@@ -231,7 +231,7 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
         .eq('id', couple.id);
 
       if (!error) {
-        set({ couple: { ...couple, ...updates } });
+        set(state => ({ couple: state.couple ? { ...state.couple, ...updates } : state.couple }));
       }
 
       return { error };
@@ -243,7 +243,7 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
   updateCategoryPreferences: async (categories) => {
     const supabase = getSupabase();
     if (!supabase) return { error: { message: 'Supabase not configured' } };
-    
+
     const { couple } = get();
     if (!couple) return { error: { message: 'No couple found' } };
 
@@ -256,7 +256,7 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
         .eq('id', couple.id);
 
       if (!error) {
-        set({ couple: { ...couple, preferred_categories: categories } });
+        set(state => ({ couple: state.couple ? { ...state.couple, preferred_categories: categories } : state.couple }));
         console.log('[CoupleStore] Category preferences updated successfully');
       } else {
         console.error('[CoupleStore] Category update error:', error);
