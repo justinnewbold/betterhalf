@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   },
   summaryNumber: {
     fontSize: 36,
-    fontFamily: fontFamilies.bold,
+    fontFamily: fontFamilies.bodyBold,
   },
   summaryLabel: {
     fontSize: 13,

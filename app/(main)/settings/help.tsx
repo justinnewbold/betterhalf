@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
   },
   emailButtonText: {
     ...typography.body,
-    fontFamily: fontFamilies.semiBold,
+    fontFamily: fontFamilies.bodySemiBold,
     color: '#fff',
   },
   sectionTitle: {
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   },
   faqQuestion: {
     ...typography.body,
-    fontFamily: fontFamilies.semiBold,
+    fontFamily: fontFamilies.bodySemiBold,
     color: colors.textPrimary,
     flex: 1,
     paddingRight: 12,
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   },
   contactTitle: {
     ...typography.body,
-    fontFamily: fontFamilies.semiBold,
+    fontFamily: fontFamilies.bodySemiBold,
     color: colors.textPrimary,
   },
   contactDesc: {

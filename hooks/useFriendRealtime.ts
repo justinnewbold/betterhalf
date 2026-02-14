@@ -96,10 +96,14 @@ export function useTrackPresence(userId: string | null) {
   useEffect(() => {
     if (!userId) return;
 
-    const cleanup = friendRealtimeService.trackPresence(userId);
+    let cleanupFn: (() => void) | undefined;
+
+    friendRealtimeService.trackPresence(userId).then((fn) => {
+      cleanupFn = fn;
+    });
 
     return () => {
-      cleanup();
+      cleanupFn?.();
     };
   }, [userId]);
 }

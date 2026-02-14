@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   },
   typeLabel: {
     ...typography.body,
-    fontFamily: fontFamilies.semiBold,
+    fontFamily: fontFamilies.bodySemiBold,
     color: colors.textPrimary,
     textAlign: 'center',
   },
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
   },
   alternativeTitle: {
     ...typography.body,
-    fontFamily: fontFamilies.semiBold,
+    fontFamily: fontFamilies.bodySemiBold,
     color: colors.textPrimary,
     marginBottom: 8,
   },
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   alternativeEmail: {
     ...typography.body,
     color: colors.coral,
-    fontFamily: fontFamilies.semiBold,
+    fontFamily: fontFamilies.bodySemiBold,
   },
   bottomPadding: {
     height: 40,

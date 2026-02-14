@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   },
   planName: {
     ...typography.body,
-    fontFamily: fontFamilies.semiBold,
+    fontFamily: fontFamilies.bodySemiBold,
     color: colors.textPrimarySecondary,
   },
   premiumText: {
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
   },
   bestValueText: {
     ...typography.caption,
-    fontFamily: fontFamilies.semiBold,
+    fontFamily: fontFamilies.bodySemiBold,
     color: '#fff',
   },
   pricingPeriod: {
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   },
   pricingAmount: {
     fontSize: 32,
-    fontFamily: fontFamilies.bold,
+    fontFamily: fontFamilies.bodyBold,
     color: colors.textPrimary,
   },
   pricingNote: {
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   savingsText: {
     ...typography.caption,
     color: colors.success,
-    fontFamily: fontFamilies.semiBold,
+    fontFamily: fontFamilies.bodySemiBold,
     marginTop: 8,
   },
   disclaimer: {
