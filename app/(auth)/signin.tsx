@@ -13,7 +13,7 @@ import { APP_VERSION } from '../../constants/config';
 
 export default function SignIn() {
   const { signIn } = useAuthStore();
-  const { devMode, setDevMode } = useDevStore();
+  const { devMode, setDevMode, setCachedPassword } = useDevStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -32,7 +32,6 @@ export default function SignIn() {
       setDevMode(next);
       const msg = next ? 'Dev mode enabled — solo partner testing active' : 'Dev mode disabled';
       if (Platform.OS === 'web') {
-        // Alert.alert may not work well on web
         setError(msg);
         setTimeout(() => setError(''), 2000);
       } else {
@@ -61,7 +60,10 @@ export default function SignIn() {
         setError(result.error.message || 'Invalid email or password');
         setLoading(false);
       } else {
-        // Navigate to invite screen - it will redirect to main if couple exists
+        // Cache password for dev quick-switch (only kept in memory)
+        if (devMode) {
+          setCachedPassword(password);
+        }
         router.replace('/(auth)/invite');
       }
     } catch (err: any) {
