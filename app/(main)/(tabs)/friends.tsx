@@ -214,7 +214,7 @@ export default function FriendsScreen() {
       <TouchableOpacity
         key={friend.id}
         style={dynamicStyles.friendCard}
-        onPress={() => router.push(`/friends/play/${friend.id}`)}
+        onPress={() => router.push(`/(main)/friends/play/${friend.id}`)}
         activeOpacity={0.7}
       >
         <View style={dynamicStyles.friendAvatar}>
