@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Platform } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Platform, TouchableOpacity, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,14 +7,17 @@ import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { SyncScoreRing } from '../../../components/game/SyncScoreRing';
 import { PartnerStatus, PartnerAnsweringIndicator } from '../../../components/ui/PartnerStatus';
+import { DevPanel } from '../../../components/dev/DevPanel';
 import { useAuthStore } from '../../../stores/authStore';
 import { useCoupleStore } from '../../../stores/coupleStore';
 import { usePresenceStore } from '../../../stores/presenceStore';
 import { useNotificationStore } from '../../../stores/notificationStore';
 import { useThemeStore } from '../../../stores/themeStore';
+import { useDevStore } from '../../../stores/devStore';
 import { colors, getThemeColors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
 import { hapticLight } from '../../../lib/haptics';
+import { APP_VERSION } from '../../../constants/config';
 
 export default function Home() {
   const { user } = useAuthStore();
@@ -22,9 +25,36 @@ export default function Home() {
   const { initializePresence, updateMyState, isConnected } = usePresenceStore();
   const { registerForPushNotifications, isPermissionGranted } = useNotificationStore();
   const { isDark } = useThemeStore();
+  const { devMode, setDevMode } = useDevStore();
   const themeColors = getThemeColors(isDark);
   
   const [refreshing, setRefreshing] = useState(false);
+
+  // Version tap counter for activating dev mode
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleVersionTap = useCallback(() => {
+    tapCountRef.current += 1;
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+
+    if (tapCountRef.current >= 5) {
+      tapCountRef.current = 0;
+      const next = !devMode;
+      setDevMode(next);
+      const msg = next ? 'Dev mode enabled 🛠' : 'Dev mode disabled';
+      if (Platform.OS === 'web') {
+        // web-safe feedback
+      } else {
+        Alert.alert('Dev Mode', msg);
+      }
+      return;
+    }
+
+    tapTimerRef.current = setTimeout(() => {
+      tapCountRef.current = 0;
+    }, 600);
+  }, [devMode, setDevMode]);
 
   // Pull-to-refresh handler
   const onRefresh = useCallback(async () => {
@@ -32,7 +62,6 @@ export default function Home() {
     hapticLight();
     
     try {
-      // Refresh couple data and stats
       await Promise.all([
         refreshCoupleData?.(),
         loadStats?.(),
@@ -47,7 +76,6 @@ export default function Home() {
   // Auto-register for notifications (one-time check)
   useEffect(() => {
     if (user?.id && couple?.status === 'active' && !isPermissionGranted) {
-      // Silently attempt to register - don't block or prompt
       registerForPushNotifications(user.id).catch(() => {});
     }
   }, [user?.id, couple?.status]);
@@ -185,6 +213,16 @@ export default function Home() {
             <Text style={[styles.statLabel, { color: themeColors.textMuted }]}>Match Rate</Text>
           </View>
         </View>
+
+        {/* Dev Panel - only shown when dev mode is active */}
+        {devMode && <DevPanel />}
+
+        {/* Version Number - tap 5 times to toggle dev mode */}
+        <TouchableOpacity onPress={handleVersionTap} activeOpacity={1} style={styles.versionContainer}>
+          <Text style={[styles.versionText, { color: themeColors.textMuted }, devMode && { color: themeColors.coral }]}>
+            {APP_VERSION}{devMode ? ' • dev' : ''}
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -283,5 +321,15 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: '100%',
+  },
+  versionContainer: {
+    alignItems: 'center',
+    paddingTop: 20,
+    paddingBottom: 8,
+  },
+  versionText: {
+    fontFamily: fontFamilies.body,
+    fontSize: 11,
+    letterSpacing: 0.5,
   },
 });
