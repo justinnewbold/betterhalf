@@ -33,10 +33,10 @@ serve(async (req) => {
       .from('betterhalf_couples')
       .select(`
         id,
-        user1_id,
-        user2_id,
-        betterhalf_users!betterhalf_couples_user1_id_fkey(email, display_name, email_notifications),
-        betterhalf_users!betterhalf_couples_user2_id_fkey(email, display_name, email_notifications)
+        partner_a_id,
+        partner_b_id,
+        betterhalf_users!betterhalf_couples_partner_a_id_fkey(email, display_name, email_notifications),
+        betterhalf_users!betterhalf_couples_partner_b_id_fkey(email, display_name, email_notifications)
       `)
       .eq('status', 'active')
     
@@ -49,19 +49,19 @@ serve(async (req) => {
     const emailsSent: string[] = []
     
     for (const couple of couples || []) {
-      const user1 = couple.betterhalf_users as any
-      const user2 = (couple as any).betterhalf_users as any
+      const user1 = (couple as any).betterhalf_users_betterhalf_couples_partner_a_id_fkey as any
+      const user2 = (couple as any).betterhalf_users_betterhalf_couples_partner_b_id_fkey as any
       
       // Skip if neither user wants emails
       if (!user1?.email_notifications && !user2?.email_notifications) continue
       
       // Get weekly games
       const { data: weeklyGames } = await supabase
-        .from('betterhalf_games')
+        .from('betterhalf_daily_sessions')
         .select('is_match')
         .eq('couple_id', couple.id)
         .gte('created_at', oneWeekAgo.toISOString())
-        .eq('status', 'completed')
+        .not('completed_at', 'is', null)
       
       // Get streak
       const { data: streak } = await supabase

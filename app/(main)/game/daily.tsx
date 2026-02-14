@@ -34,17 +34,18 @@ interface Question {
 interface GameSession {
   id: string;
   question_id: string;
-  game_date: string;
-  status: string;
-  initiator_answer: number | null;
-  partner_answer: number | null;
+  couple_id: string;
+  user_a_answer: number | null;
+  user_b_answer: number | null;
   is_match: boolean | null;
+  completed_at: string | null;
+  created_at: string;
 }
 
 export default function DailySyncGame() {
   const { user } = useAuthStore();
-  const { couple, partner, loadCouple, refreshCoupleData, stats, streak } = useCoupleStore();
-  const { partnerState, partnerCurrentScreen, startTracking, stopTracking, setCurrentScreen } = usePresenceStore();
+  const { couple, partnerProfile, fetchCouple, refreshCoupleData, stats, streak } = useCoupleStore();
+  const { partnerState, partnerCurrentScreen, updateMyState, isConnected } = usePresenceStore();
   const { isDark } = useThemeStore();
   const { fetchAchievements, checkAndUnlock, hasFetched: achievementsFetched } = useAchievementStore();
   const themeColors = getThemeColors(isDark);
@@ -63,8 +64,8 @@ export default function DailySyncGame() {
   const [revealAnimationComplete, setRevealAnimationComplete] = useState(false);
   const [achievementsChecked, setAchievementsChecked] = useState(false);
 
-  const isInitiator = couple?.user1_id === user?.id;
-  const connectionName = partner?.nickname || partner?.display_name || 'Your Partner';
+  const isUserA = couple?.partner_a_id === user?.id;
+  const connectionName = partnerProfile?.display_name || 'Your Partner';
 
   // Fetch achievements on mount
   useEffect(() => {
@@ -75,14 +76,15 @@ export default function DailySyncGame() {
 
   // Track presence
   useEffect(() => {
-    if (couple?.id) {
-      startTracking(couple.id, 'daily');
-      setCurrentScreen('daily');
+    if (couple?.id && isConnected) {
+      updateMyState('online', 'daily');
     }
     return () => {
-      stopTracking();
+      if (isConnected) {
+        updateMyState('online', 'home');
+      }
     };
-  }, [couple?.id]);
+  }, [couple?.id, isConnected]);
 
   // Check for achievements when game completes (results phase)
   useEffect(() => {
@@ -113,7 +115,7 @@ export default function DailySyncGame() {
       try {
         const supabase = getSupabase();
         const { data, error } = await supabase
-          .from(TABLES.GAMES)
+          .from(TABLES.daily_sessions)
           .select('*')
           .eq('id', session.id)
           .single();
@@ -121,8 +123,8 @@ export default function DailySyncGame() {
         if (error) throw error;
         
         if (data) {
-          const myAnswer = isInitiator ? data.initiator_answer : data.partner_answer;
-          const theirAnswer = isInitiator ? data.partner_answer : data.initiator_answer;
+          const myAnswer = isUserA ? data.user_a_answer : data.user_b_answer;
+          const theirAnswer = isUserA ? data.user_b_answer : data.user_a_answer;
           
           if (myAnswer !== null && theirAnswer !== null) {
             // Both answered
@@ -147,7 +149,7 @@ export default function DailySyncGame() {
     }, 2000);
     
     return () => clearInterval(pollInterval);
-  }, [phase, session?.id, isInitiator]);
+  }, [phase, session?.id, isUserA]);
 
   // Load game on mount
   useEffect(() => {
@@ -166,19 +168,20 @@ export default function DailySyncGame() {
       
       // Check for existing game today
       const { data: existingGame, error: gameError } = await supabase
-        .from(TABLES.GAMES)
+        .from(TABLES.daily_sessions)
         .select('*')
         .eq('couple_id', couple.id)
-        .eq('game_date', today)
-        .single();
+        .gte('created_at', today + 'T00:00:00')
+        .lt('created_at', today + 'T23:59:59.999')
+        .maybeSingle();
       
-      if (gameError && gameError.code !== 'PGRST116') {
+      if (gameError) {
         throw gameError;
       }
       
       if (existingGame) {
-        const myAnswer = isInitiator ? existingGame.initiator_answer : existingGame.partner_answer;
-        const theirAnswer = isInitiator ? existingGame.partner_answer : existingGame.initiator_answer;
+        const myAnswer = isUserA ? existingGame.user_a_answer : existingGame.user_b_answer;
+        const theirAnswer = isUserA ? existingGame.user_b_answer : existingGame.user_a_answer;
         
         if (myAnswer !== null && theirAnswer !== null) {
           // Game already completed
@@ -192,7 +195,7 @@ export default function DailySyncGame() {
           
           // Load question for display
           const { data: q } = await supabase
-            .from(TABLES.QUESTIONS)
+            .from(TABLES.questions)
             .select('*')
             .eq('id', existingGame.question_id)
             .single();
@@ -215,7 +218,7 @@ export default function DailySyncGame() {
           setSelectedOption(myAnswer);
           
           const { data: q } = await supabase
-            .from(TABLES.QUESTIONS)
+            .from(TABLES.questions)
             .select('*')
             .eq('id', existingGame.question_id)
             .single();
@@ -237,7 +240,7 @@ export default function DailySyncGame() {
           setSession(existingGame);
           
           const { data: q } = await supabase
-            .from(TABLES.QUESTIONS)
+            .from(TABLES.questions)
             .select('*')
             .eq('id', existingGame.question_id)
             .single();
@@ -278,7 +281,7 @@ export default function DailySyncGame() {
       
       // Get random question from preferred categories
       const { data: questions, error: qError } = await supabase
-        .from(TABLES.QUESTIONS)
+        .from(TABLES.questions)
         .select('*')
         .in('category', preferredCategories)
         .eq('for_couples', true);
@@ -295,12 +298,10 @@ export default function DailySyncGame() {
       
       // Create game session
       const { data: newGame, error: createError } = await supabase
-        .from(TABLES.GAMES)
+        .from(TABLES.daily_sessions)
         .insert({
           couple_id: couple.id,
           question_id: randomQ.id,
-          game_date: today,
-          status: 'active',
         })
         .select()
         .single();
@@ -332,7 +333,7 @@ export default function DailySyncGame() {
       
       // Get streak
       const { data: streakData } = await supabase
-        .from(TABLES.STREAKS)
+        .from(TABLES.streaks)
         .select('*')
         .eq('couple_id', couple.id)
         .single();
@@ -343,7 +344,7 @@ export default function DailySyncGame() {
       
       // Get stats
       const { data: statsData } = await supabase
-        .from(TABLES.COUPLE_STATS)
+        .from(TABLES.couple_stats)
         .select('*')
         .eq('couple_id', couple.id)
         .single();
@@ -366,11 +367,11 @@ export default function DailySyncGame() {
     try {
       const supabase = getSupabase();
       
-      const updateField = isInitiator ? 'initiator_answer' : 'partner_answer';
+      const updateField = isUserA ? 'user_a_answer' : 'user_b_answer';
       
       // Update game with my answer
       const { data: updatedGame, error } = await supabase
-        .from(TABLES.GAMES)
+        .from(TABLES.daily_sessions)
         .update({ [updateField]: optionIndex })
         .eq('id', session.id)
         .select()
@@ -379,24 +380,23 @@ export default function DailySyncGame() {
       if (error) throw error;
       
       // Check if partner already answered
-      const theirAnswer = isInitiator ? updatedGame.partner_answer : updatedGame.initiator_answer;
+      const theirAnswer = isUserA ? updatedGame.user_b_answer : updatedGame.user_a_answer;
       
       if (theirAnswer !== null) {
         // Both answered - calculate match
         const matched = optionIndex === theirAnswer;
         
         await supabase
-          .from(TABLES.GAMES)
+          .from(TABLES.daily_sessions)
           .update({ 
             is_match: matched,
-            status: 'completed',
             completed_at: new Date().toISOString(),
           })
           .eq('id', session.id);
         
         setPartnerOption(theirAnswer);
         setIsMatch(matched);
-        setSession({ ...updatedGame, is_match: matched, status: 'completed' });
+        setSession({ ...updatedGame, is_match: matched });
         
         // Trigger haptic
         if (matched) {
@@ -587,9 +587,8 @@ export default function DailySyncGame() {
           </View>
           
           <QuestionCard
-            question={question.question}
-            options={question.options}
-            selectedOption={selectedOption}
+            question={question}
+            selectedIndex={selectedOption ?? undefined}
             onSelectOption={handleSelectOption}
           />
           
@@ -619,12 +618,11 @@ export default function DailySyncGame() {
         <View style={styles.gameContent}>
           <AnswerReveal
             question={question.question}
-            options={question.options}
-            yourAnswer={selectedOption}
-            partnerAnswer={partnerOption}
+            yourAnswer={question.options[selectedOption]}
+            partnerAnswer={question.options[partnerOption]}
             partnerName={connectionName}
             isMatch={isMatch}
-            onRevealComplete={handleRevealComplete}
+            onAnimationComplete={handleRevealComplete}
           />
           
           {revealAnimationComplete && (
@@ -655,7 +653,7 @@ export default function DailySyncGame() {
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
-                <SyncScoreRing score={syncScore} size={60} />
+                <SyncScoreRing percentage={syncScore} size="small" />
                 <Text style={dynamicStyles.statLabel}>Sync Score</Text>
               </View>
             </View>

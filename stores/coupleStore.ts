@@ -17,6 +17,8 @@ interface CoupleState {
   lastFetchUserId: string | null;
   
   fetchCouple: (userId: string) => Promise<void>;
+  refreshCoupleData: () => Promise<void>;
+  loadStats: () => Promise<void>;
   createCouple: (userId: string) => Promise<{ inviteCode: string | null; error: unknown }>;
   joinCouple: (userId: string, inviteCode: string) => Promise<{ error: unknown }>;
   updateCouple: (updates: Partial<Couple>) => Promise<{ error: unknown }>;
@@ -107,6 +109,39 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
     } catch (error) {
       console.error('[CoupleStore] Fetch couple exception:', error);
       set({ couple: null, partnerProfile: null, stats: null, streak: null, isLoading: false, hasFetched: true });
+    }
+  },
+
+  refreshCoupleData: async () => {
+    const state = get();
+    const userId = state.lastFetchUserId;
+    if (!userId) return;
+    // Reset fetch flags to force a fresh fetch
+    set({ hasFetched: false, lastFetchUserId: null });
+    await get().fetchCouple(userId);
+  },
+
+  loadStats: async () => {
+    const supabase = getSupabase();
+    const { couple } = get();
+    if (!supabase || !couple?.id) return;
+
+    try {
+      const { data: stats } = await supabase
+        .from(TABLES.couple_stats)
+        .select('*')
+        .eq('couple_id', couple.id)
+        .maybeSingle();
+
+      const { data: streak } = await supabase
+        .from(TABLES.streaks)
+        .select('*')
+        .eq('couple_id', couple.id)
+        .maybeSingle();
+
+      set({ stats, streak });
+    } catch (error) {
+      console.error('[CoupleStore] Load stats error:', error);
     }
   },
 

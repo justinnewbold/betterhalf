@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   emailText: {
     ...typography.body,
     color: colors.purpleLight,
-    fontFamily: fontFamilies.semiBold,
+    fontFamily: fontFamilies.bodySemiBold,
     textAlign: 'center',
     marginBottom: 16,
   },

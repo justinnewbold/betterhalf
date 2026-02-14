@@ -38,6 +38,14 @@ export interface ThemeColors {
   inputBackground: string;
   inputBorder: string;
   placeholder: string;
+  
+  // Friends Mode
+  greenAccent: string;
+  coralPrimary: string;
+  
+  // Aliases (backwards compat)
+  textPrimaryMuted: string;
+  textPrimarySecondary: string;
 }
 
 // Dark theme colors (original)
@@ -78,6 +86,14 @@ export const darkColors: ThemeColors = {
   inputBackground: 'rgba(255,255,255,0.05)',
   inputBorder: 'rgba(255,255,255,0.1)',
   placeholder: 'rgba(255,255,255,0.4)',
+  
+  // Friends Mode
+  greenAccent: '#10B981',
+  coralPrimary: '#FF6B6B',
+  
+  // Aliases
+  textPrimaryMuted: 'rgba(255,255,255,0.5)',
+  textPrimarySecondary: 'rgba(255,255,255,0.7)',
 };
 
 // Light theme colors
@@ -118,6 +134,14 @@ export const lightColors: ThemeColors = {
   inputBackground: 'rgba(0,0,0,0.03)',
   inputBorder: 'rgba(0,0,0,0.1)',
   placeholder: 'rgba(26,26,46,0.4)',
+  
+  // Friends Mode
+  greenAccent: '#059669',
+  coralPrimary: '#E85555',
+  
+  // Aliases
+  textPrimaryMuted: 'rgba(26,26,46,0.5)',
+  textPrimarySecondary: 'rgba(26,26,46,0.7)',
 };
 
 // Helper function to get colors based on theme
@@ -159,6 +183,14 @@ export const colors = {
   // Misc
   transparent: 'transparent',
   overlay: 'rgba(0,0,0,0.5)',
+  
+  // Friends Mode
+  greenAccent: '#10B981',
+  coralPrimary: '#FF6B6B',
+  
+  // Aliases
+  textPrimaryMuted: 'rgba(255,255,255,0.5)',
+  textPrimarySecondary: 'rgba(255,255,255,0.7)',
 };
 
 export const gradients = {
