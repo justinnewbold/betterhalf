@@ -63,6 +63,7 @@ export default function DailySyncGame() {
   const [showBurst, setShowBurst] = useState(false);
   const [revealAnimationComplete, setRevealAnimationComplete] = useState(false);
   const [achievementsChecked, setAchievementsChecked] = useState(false);
+  const [loadAttempts, setLoadAttempts] = useState(0);
 
   const isUserA = couple?.partner_a_id === user?.id;
   const connectionName = partnerProfile?.display_name || 'Your Partner';
@@ -151,19 +152,47 @@ export default function DailySyncGame() {
     return () => clearInterval(pollInterval);
   }, [phase, session?.id, isUserA]);
 
-  // Load game on mount
+  // Load game on mount - with retry for missing data
   useEffect(() => {
-    loadGame();
-  }, [couple?.id]);
+    if (couple?.id && user?.id) {
+      loadGame();
+    } else if (loadAttempts < 5) {
+      // Couple or user data not ready yet, retry after delay
+      const timer = setTimeout(() => {
+        setLoadAttempts(prev => prev + 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else {
+      // After 5 attempts (5 seconds), show error
+      setErrorMessage('Could not load game data. Please go back and try again.');
+      setPhase('error');
+    }
+  }, [couple?.id, user?.id, loadAttempts]);
+
+  // Safety timeout - prevent infinite loading
+  useEffect(() => {
+    if (phase !== 'loading') return;
+    const timeout = setTimeout(() => {
+      if (phase === 'loading') {
+        console.warn('[DailyGame] Loading timeout reached');
+        setErrorMessage('Loading is taking too long. Please go back and try again.');
+        setPhase('error');
+      }
+    }, 15000); // 15 second timeout
+    return () => clearTimeout(timeout);
+  }, [phase]);
 
   const loadGame = async () => {
     if (!couple?.id || !user?.id) {
-      setPhase('loading');
-      return;
+      console.log('[DailyGame] Missing data - couple:', couple?.id, 'user:', user?.id);
+      return; // Don't set phase to loading, let the retry useEffect handle it
     }
 
     try {
       const supabase = getSupabase();
+      if (!supabase) {
+        throw new Error('Database connection not available');
+      }
       const today = new Date().toISOString().split('T')[0];
       
       // Check for existing game today
@@ -275,6 +304,9 @@ export default function DailySyncGame() {
     
     try {
       const supabase = getSupabase();
+      if (!supabase) {
+        throw new Error('Database connection not available');
+      }
       
       // Get couple's preferred categories
       const preferredCategories = couple.preferred_categories || ['daily_life', 'romance', 'deep_talks', 'fun', 'spice'];
