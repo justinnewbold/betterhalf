@@ -60,16 +60,38 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
     console.log('[CoupleStore] Fetching couple for user:', userId);
 
     try {
-      const { data: couple, error } = await supabase
+      // First try to find an ACTIVE couple (prioritize active over pending)
+      let couple = null;
+      
+      const { data: activeCouples, error: activeError } = await supabase
         .from(TABLES.couples)
         .select('*')
         .or(`partner_a_id.eq.${userId},partner_b_id.eq.${userId}`)
-        .maybeSingle();
+        .eq('status', 'active')
+        .limit(1);
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('[CoupleStore] Fetch couple error:', error);
-        set({ couple: null, partnerProfile: null, stats: null, streak: null, isLoading: false, hasFetched: true });
-        return;
+      if (activeError) {
+        console.error('[CoupleStore] Fetch active couple error:', activeError);
+      }
+
+      if (activeCouples && activeCouples.length > 0) {
+        couple = activeCouples[0];
+      } else {
+        // No active couple, try any couple (pending invite)
+        const { data: anyCouples, error: anyError } = await supabase
+          .from(TABLES.couples)
+          .select('*')
+          .or(`partner_a_id.eq.${userId},partner_b_id.eq.${userId}`)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (anyError) {
+          console.error('[CoupleStore] Fetch any couple error:', anyError);
+        }
+
+        if (anyCouples && anyCouples.length > 0) {
+          couple = anyCouples[0];
+        }
       }
 
       console.log('[CoupleStore] Found couple:', couple?.id, 'status:', couple?.status);
@@ -152,6 +174,21 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
     console.log('[CoupleStore] Creating couple for user:', userId);
     
     try {
+      // First check if user already has a pending couple to avoid duplicates
+      const { data: existing } = await supabase
+        .from(TABLES.couples)
+        .select('id, invite_code, status')
+        .eq('partner_a_id', userId)
+        .eq('status', 'pending')
+        .is('partner_b_id', null)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        console.log('[CoupleStore] User already has pending couple:', existing[0].id);
+        set({ couple: existing[0] as any, hasFetched: true });
+        return { inviteCode: existing[0].invite_code, error: null };
+      }
+
       const { data, error } = await supabase
         .from(TABLES.couples)
         .insert({
