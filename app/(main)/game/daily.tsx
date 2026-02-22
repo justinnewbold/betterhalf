@@ -207,7 +207,7 @@ export default function DailySyncGame() {
       }
       console.log('[DailyGame] Session verified for user:', currentSession.user.id);
       
-      setLoadStatus('Checking for today's game...');
+      setLoadStatus("Checking for today's game...");
       const today = new Date().toISOString().split('T')[0];
       
       // Check for existing game today
@@ -348,7 +348,7 @@ export default function DailySyncGame() {
       // Fallback: if no questions found with preferred categories, try ALL couples questions
       if (!questions || questions.length === 0) {
         console.log('[DailyGame] No questions in preferred categories, trying all...');
-        setLoadStatus('Loading questions (fallback)...');
+        setLoadStatus("Loading questions (fallback)...");
         const { data: allQuestions, error: allError } = await supabase
           .from(TABLES.questions)
           .select('*')
