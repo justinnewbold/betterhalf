@@ -43,21 +43,32 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
       return;
     }
     
-    // Prevent duplicate fetches for the same user
     const state = get();
-    if (state.isLoading) {
-      console.log('[CoupleStore] Already fetching, skipping');
-      return;
-    }
     
     // If we already fetched for this user, don't refetch unless reset
     if (state.hasFetched && state.lastFetchUserId === userId) {
       console.log('[CoupleStore] Already fetched for this user');
       return;
     }
+
+    // If already loading, don't start another fetch but DO set a safety timeout
+    // to prevent permanent stuck state
+    if (state.isLoading) {
+      console.log('[CoupleStore] Already fetching, skipping duplicate call');
+      return;
+    }
     
     set({ isLoading: true, lastFetchUserId: userId });
     console.log('[CoupleStore] Fetching couple for user:', userId);
+
+    // Safety timeout: ensure isLoading is always cleared
+    const safetyTimeout = setTimeout(() => {
+      const currentState = get();
+      if (currentState.isLoading && currentState.lastFetchUserId === userId) {
+        console.warn('[CoupleStore] Safety timeout reached, forcing completion');
+        set({ isLoading: false, hasFetched: true });
+      }
+    }, 8000); // 8 second safety net
 
     try {
       // First try to find an ACTIVE couple (prioritize active over pending)
@@ -123,13 +134,16 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
           .eq('couple_id', couple.id)
           .maybeSingle();
 
+        clearTimeout(safetyTimeout);
         set({ couple, partnerProfile, stats, streak, isLoading: false, hasFetched: true });
       } else {
         console.log('[CoupleStore] No couple found for user');
+        clearTimeout(safetyTimeout);
         set({ couple: null, partnerProfile: null, stats: null, streak: null, isLoading: false, hasFetched: true });
       }
     } catch (error) {
       console.error('[CoupleStore] Fetch couple exception:', error);
+      clearTimeout(safetyTimeout);
       set({ couple: null, partnerProfile: null, stats: null, streak: null, isLoading: false, hasFetched: true });
     }
   },
@@ -139,7 +153,7 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
     const userId = state.lastFetchUserId;
     if (!userId) return;
     // Reset fetch flags to force a fresh fetch
-    set({ hasFetched: false, lastFetchUserId: null });
+    set({ hasFetched: false, lastFetchUserId: null, isLoading: false });
     await get().fetchCouple(userId);
   },
 
@@ -279,7 +293,7 @@ export const useCoupleStore = create<CoupleState>((set, get) => ({
       }
 
       // Reset hasFetched to force a fresh fetch
-      set({ couple: updatedCouple, hasFetched: false, lastFetchUserId: null });
+      set({ couple: updatedCouple, hasFetched: false, lastFetchUserId: null, isLoading: false });
       await get().fetchCouple(userId);
 
       console.log('[CoupleStore] Successfully joined couple!');
