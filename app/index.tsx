@@ -1,9 +1,11 @@
 import { Redirect, Href } from 'expo-router';
 import { useAuthStore } from '../stores/authStore';
 import { useCoupleStore } from '../stores/coupleStore';
-import { useEffect, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { useEffect, useState, useRef } from 'react';
+import { View, ActivityIndicator, StyleSheet, Text, Platform } from 'react-native';
 import { colors } from '../constants/colors';
+
+const COUPLE_LOAD_TIMEOUT_MS = 6000; // 6 second safety timeout for couple loading
 
 export default function Index() {
   const { session, user, isLoading: authLoading, isInitialized } = useAuthStore();
@@ -13,6 +15,8 @@ export default function Index() {
   const [urlChecked, setUrlChecked] = useState(false);
   const [isInviteLink, setIsInviteLink] = useState(false);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [coupleLoadTimedOut, setCoupleLoadTimedOut] = useState(false);
+  const fetchCalledRef = useRef(false);
 
   // Check URL parameters - only runs once on mount
   useEffect(() => {
@@ -54,11 +58,35 @@ export default function Index() {
 
   // Fetch couple data when session is available and not already fetched
   useEffect(() => {
-    if (session?.user?.id && !hasFetched && !isPasswordReset && urlChecked && !isInviteLink) {
+    if (session?.user?.id && !hasFetched && !isPasswordReset && urlChecked && !isInviteLink && !fetchCalledRef.current) {
       console.log('[Index] Fetching couple data for user:', session.user.id);
-      fetchCouple(session.user.id);
+      fetchCalledRef.current = true;
+      fetchCouple(session.user.id).catch((err) => {
+        console.error('[Index] fetchCouple error:', err);
+      });
     }
   }, [session?.user?.id, hasFetched, isPasswordReset, urlChecked, isInviteLink, fetchCouple]);
+
+  // Reset fetchCalledRef when hasFetched changes back (e.g., after a refresh)
+  useEffect(() => {
+    if (hasFetched) {
+      fetchCalledRef.current = false;
+    }
+  }, [hasFetched]);
+
+  // Safety timeout: if couple data doesn't load within timeout, proceed anyway
+  useEffect(() => {
+    if (!session?.user || hasFetched || coupleLoadTimedOut) return;
+    
+    const timeout = setTimeout(() => {
+      if (!hasFetched) {
+        console.warn('[Index] Couple load timeout reached, proceeding without couple data');
+        setCoupleLoadTimedOut(true);
+      }
+    }, COUPLE_LOAD_TIMEOUT_MS);
+    
+    return () => clearTimeout(timeout);
+  }, [session?.user, hasFetched, coupleLoadTimedOut]);
 
   // Still checking URL
   if (!urlChecked) {
@@ -93,17 +121,17 @@ export default function Index() {
     return <Redirect href="/(auth)/welcome" />;
   }
 
-  // Loading couple data (only show loading if we haven't fetched yet)
-  if (coupleLoading || !hasFetched) {
+  // Loading couple data - show loading UNLESS we've timed out
+  if ((coupleLoading || !hasFetched) && !coupleLoadTimedOut) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={colors.purple} />
+        <Text style={styles.loadingText}>Loading your data...</Text>
       </View>
     );
   }
 
   // Logged in but profile not completed -> Setup profile first
-  // Check if user exists and has NOT completed profile setup
   if (user && !user.profile_completed) {
     console.log('[Index] Profile not completed, redirecting to setup');
     return <Redirect href="/(auth)/setup-profile" />;
@@ -124,5 +152,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.darkBg,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  loadingText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 14,
+    marginTop: 16,
   },
 });
