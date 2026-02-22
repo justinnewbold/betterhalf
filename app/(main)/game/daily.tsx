@@ -64,6 +64,7 @@ export default function DailySyncGame() {
   const [revealAnimationComplete, setRevealAnimationComplete] = useState(false);
   const [achievementsChecked, setAchievementsChecked] = useState(false);
   const [loadAttempts, setLoadAttempts] = useState(0);
+  const [loadStatus, setLoadStatus] = useState('Initializing...');
 
   const isUserA = couple?.partner_a_id === user?.id;
   const connectionName = partnerProfile?.display_name || 'Your Partner';
@@ -178,21 +179,35 @@ export default function DailySyncGame() {
         setErrorMessage('Loading is taking too long. Please go back and try again.');
         setPhase('error');
       }
-    }, 15000); // 15 second timeout
+    }, 10000); // 10 second timeout
     return () => clearTimeout(timeout);
   }, [phase]);
 
   const loadGame = async () => {
+    console.log('[DailyGame] loadGame called - couple:', couple?.id, 'user:', user?.id);
+    setLoadStatus('Checking data...');
+    
     if (!couple?.id || !user?.id) {
       console.log('[DailyGame] Missing data - couple:', couple?.id, 'user:', user?.id);
+      setLoadStatus('Waiting for user data...');
       return; // Don't set phase to loading, let the retry useEffect handle it
     }
 
     try {
+      setLoadStatus('Connecting to database...');
       const supabase = getSupabase();
       if (!supabase) {
         throw new Error('Database connection not available');
       }
+      
+      // Verify we have an active session
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession) {
+        throw new Error('No active session - please log in again');
+      }
+      console.log('[DailyGame] Session verified for user:', currentSession.user.id);
+      
+      setLoadStatus('Checking for today's game...');
       const today = new Date().toISOString().split('T')[0];
       
       // Check for existing game today
@@ -208,7 +223,10 @@ export default function DailySyncGame() {
         throw gameError;
       }
       
+      console.log('[DailyGame] Existing game check:', existingGame ? 'found' : 'none');
+      
       if (existingGame) {
+        setLoadStatus('Found existing game...');
         const myAnswer = isUserA ? existingGame.user_a_answer : existingGame.user_b_answer;
         const theirAnswer = isUserA ? existingGame.user_b_answer : existingGame.user_a_answer;
         
@@ -290,6 +308,7 @@ export default function DailySyncGame() {
       }
       
       // No game today - create new one
+      setLoadStatus('Creating new game...');
       await createNewGame();
       
     } catch (err) {
@@ -300,28 +319,50 @@ export default function DailySyncGame() {
   };
 
   const createNewGame = async () => {
-    if (!couple?.id || !user?.id) return;
+    if (!couple?.id || !user?.id) {
+      setErrorMessage('Missing couple or user data');
+      setPhase('error');
+      return;
+    }
     
     try {
+      setLoadStatus('Picking a question...');
       const supabase = getSupabase();
       if (!supabase) {
         throw new Error('Database connection not available');
       }
       
-      // Get couple's preferred categories
-      const preferredCategories = couple.preferred_categories || ['daily_life', 'romance', 'deep_talks', 'fun', 'spice'];
+      // Get couple's preferred categories (fixed: use valid category names)
+      const preferredCategories = couple.preferred_categories || ['daily_life', 'heart', 'deep_talks', 'fun', 'spice'];
+      console.log('[DailyGame] Using categories:', preferredCategories);
       
       // Get random question from preferred categories
-      const { data: questions, error: qError } = await supabase
+      let { data: questions, error: qError } = await supabase
         .from(TABLES.questions)
         .select('*')
         .in('category', preferredCategories)
         .eq('for_couples', true);
       
       if (qError) throw qError;
+      
+      // Fallback: if no questions found with preferred categories, try ALL couples questions
       if (!questions || questions.length === 0) {
-        throw new Error('No questions available');
+        console.log('[DailyGame] No questions in preferred categories, trying all...');
+        setLoadStatus('Loading questions (fallback)...');
+        const { data: allQuestions, error: allError } = await supabase
+          .from(TABLES.questions)
+          .select('*')
+          .eq('for_couples', true);
+        
+        if (allError) throw allError;
+        questions = allQuestions;
       }
+      
+      if (!questions || questions.length === 0) {
+        throw new Error('No questions available in the database');
+      }
+      
+      console.log('[DailyGame] Found', questions.length, 'questions');
       
       // Pick random question
       const randomQ = questions[Math.floor(Math.random() * questions.length)];
@@ -329,6 +370,7 @@ export default function DailySyncGame() {
       const today = new Date().toISOString().split('T')[0];
       
       // Create game session
+      setLoadStatus('Creating game session...');
       const { data: newGame, error: createError } = await supabase
         .from(TABLES.daily_sessions)
         .insert({
@@ -605,6 +647,7 @@ export default function DailySyncGame() {
         <View style={styles.centerContent}>
           <QuestionSkeleton />
           <Text style={dynamicStyles.loadingText}>Loading today's question...</Text>
+          <Text style={[dynamicStyles.loadingText, { fontSize: 12, marginTop: 8, opacity: 0.6 }]}>{loadStatus}</Text>
         </View>
       )}
 
@@ -837,3 +880,5 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
+
+
