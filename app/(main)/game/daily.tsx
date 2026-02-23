@@ -528,13 +528,40 @@ export default function DailySyncGame() {
     try {
       const supabase = getSupabase();
       
+      // If session ID is 'pending' (INSERT succeeded but SELECT failed), re-fetch it
+      let activeSessionId = session.id;
+      if (activeSessionId === 'pending' && couple?.id && question?.id) {
+        console.log('[DailyGame] Re-fetching session for pending game...');
+        const today = new Date().toISOString().split('T')[0];
+        const { data: refetched } = await withTimeout(
+          supabase
+            .from(TABLES.daily_sessions)
+            .select('*')
+            .eq('couple_id', couple.id)
+            .eq('question_id', question.id)
+            .gte('created_at', today + 'T00:00:00')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          5000,
+          're-fetch pending session'
+        );
+        if (refetched?.id) {
+          activeSessionId = refetched.id;
+          setSession(refetched);
+          console.log('[DailyGame] Re-fetched session ID:', activeSessionId);
+        } else {
+          throw new Error('Cannot find game session to save your answer. Please try again.');
+        }
+      }
+      
       const updateField = isUserA ? 'user_a_answer' : 'user_b_answer';
       
       // Update game with my answer
       const { data: updatedGame, error } = await supabase
         .from(TABLES.daily_sessions)
         .update({ [updateField]: optionIndex })
-        .eq('id', session.id)
+        .eq('id', activeSessionId)
         .select()
         .single();
       
@@ -553,7 +580,7 @@ export default function DailySyncGame() {
             is_match: matched,
             completed_at: new Date().toISOString(),
           })
-          .eq('id', session.id);
+          .eq('id', activeSessionId);
         
         setPartnerOption(theirAnswer);
         setIsMatch(matched);
