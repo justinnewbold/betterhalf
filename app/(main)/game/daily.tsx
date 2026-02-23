@@ -154,18 +154,28 @@ export default function DailySyncGame() {
     return () => clearInterval(pollInterval);
   }, [phase, session?.id, isUserA]);
 
-  // Load game on mount - with retry for missing data
+  // Load game on mount - with active data fetching
   useEffect(() => {
     if (couple?.id && user?.id) {
       loadGame();
-    } else if (loadAttempts < 5) {
-      // Couple or user data not ready yet, retry after delay
+    } else if (user?.id && !couple?.id && loadAttempts < 5) {
+      // Actively fetch couple data instead of passively waiting
+      setLoadStatus('Loading couple data...');
+      fetchCouple(user.id).then(() => {
+        // fetchCouple updates the store, which triggers this useEffect again
+        setLoadAttempts(prev => prev + 1);
+      }).catch((err) => {
+        console.warn('[DailyGame] fetchCouple failed:', err);
+        setLoadAttempts(prev => prev + 1);
+      });
+    } else if (!user?.id && loadAttempts < 5) {
+      // Auth data not ready yet, wait briefly
       const timer = setTimeout(() => {
         setLoadAttempts(prev => prev + 1);
       }, 1000);
       return () => clearTimeout(timer);
     } else {
-      // After 5 attempts (5 seconds), show error
+      // After 5 attempts, show error
       setErrorMessage('Could not load game data. Please go back and try again.');
       setPhase('error');
     }
@@ -942,10 +952,18 @@ export default function DailySyncGame() {
           </Text>
           <Button
             title="Try Again"
-            onPress={() => {
+            onPress={async () => {
               setPhase('loading');
               setLoadAttempts(0);
               setErrorMessage('');
+              // Actively fetch couple data if missing before retrying
+              if (user?.id && !couple?.id) {
+                try {
+                  await fetchCouple(user.id);
+                } catch (e) {
+                  console.warn('[DailyGame] fetchCouple retry failed:', e);
+                }
+              }
               loadGame();
             }}
             variant="primary"
@@ -1086,5 +1104,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+
 
 
