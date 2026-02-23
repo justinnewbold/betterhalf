@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -42,6 +42,21 @@ interface GameSession {
   created_at: string;
 }
 
+// Helper: get today's date boundaries in UTC from the user's LOCAL date
+// This ensures "today" means the user's local calendar day, not UTC
+function getTodayBounds(): { start: string; end: string } {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const localDayStart = new Date(`${year}-${month}-${day}T00:00:00`);
+  const localDayEnd = new Date(`${year}-${month}-${day}T23:59:59.999`);
+  return {
+    start: localDayStart.toISOString(),
+    end: localDayEnd.toISOString(),
+  };
+}
+
 export default function DailySyncGame() {
   const { user } = useAuthStore();
   const { couple, partnerProfile, fetchCouple, refreshCoupleData, stats, streak } = useCoupleStore();
@@ -66,8 +81,24 @@ export default function DailySyncGame() {
   const [loadAttempts, setLoadAttempts] = useState(0);
   const [loadStatus, setLoadStatus] = useState('Initializing...');
 
+  // Refs for preventing race conditions and managing timeouts
+  const isLoadingRef = useRef(false);
+  const isMountedRef = useRef(true);
+  const safetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const isUserA = couple?.partner_a_id === user?.id;
   const connectionName = partnerProfile?.display_name || 'Your Partner';
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Fetch achievements on mount
   useEffect(() => {
@@ -117,6 +148,7 @@ export default function DailySyncGame() {
     const pollInterval = setInterval(async () => {
       try {
         const supabase = getSupabase();
+        if (!supabase) return;
         const { data, error } = await supabase
           .from(TABLES.daily_sessions)
           .select('*')
@@ -143,11 +175,11 @@ export default function DailySyncGame() {
               hapticError();
             }
             
-            setPhase('reveal');
+            if (isMountedRef.current) setPhase('reveal');
           }
         }
       } catch (err) {
-        console.error('Poll error:', err);
+        console.error('[DailyGame] Poll error:', err);
       }
     }, 3000); // Poll every 3 seconds in background
     
@@ -163,35 +195,43 @@ export default function DailySyncGame() {
       setLoadStatus('Loading couple data...');
       fetchCouple(user.id).then(() => {
         // fetchCouple updates the store, which triggers this useEffect again
-        setLoadAttempts(prev => prev + 1);
+        if (isMountedRef.current) setLoadAttempts(prev => prev + 1);
       }).catch((err) => {
         console.warn('[DailyGame] fetchCouple failed:', err);
-        setLoadAttempts(prev => prev + 1);
+        if (isMountedRef.current) setLoadAttempts(prev => prev + 1);
       });
     } else if (!user?.id && loadAttempts < 5) {
       // Auth data not ready yet, wait briefly
       const timer = setTimeout(() => {
-        setLoadAttempts(prev => prev + 1);
+        if (isMountedRef.current) setLoadAttempts(prev => prev + 1);
       }, 1000);
       return () => clearTimeout(timer);
-    } else {
+    } else if (loadAttempts >= 5) {
       // After 5 attempts, show error
+      isLoadingRef.current = false;
       setErrorMessage('Could not load game data. Please go back and try again.');
       setPhase('error');
     }
   }, [couple?.id, user?.id, loadAttempts]);
 
-  // Safety timeout - prevent infinite loading
+  // SAFETY TIMEOUT - uses ref to guarantee it fires regardless of re-renders
   useEffect(() => {
-    if (phase !== 'loading') return;
-    const timeout = setTimeout(() => {
-      if (phase === 'loading') {
-        console.warn('[DailyGame] Loading timeout reached');
-        setErrorMessage('Loading is taking too long. Please go back and try again.');
-        setPhase('error');
+    if (phase === 'loading') {
+      if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
+      safetyTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current && isLoadingRef.current) {
+          console.warn('[DailyGame] SAFETY TIMEOUT: Forcing error state after 12s');
+          isLoadingRef.current = false;
+          setErrorMessage('Loading is taking too long. Please go back and try again.');
+          setPhase('error');
+        }
+      }, 12000);
+    } else {
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+        safetyTimeoutRef.current = null;
       }
-    }, 10000); // 10 second timeout
-    return () => clearTimeout(timeout);
+    }
   }, [phase]);
 
   // Utility: wrap a promise with a timeout
@@ -205,14 +245,21 @@ export default function DailySyncGame() {
   };
 
   const loadGame = async () => {
-    console.log('[DailyGame] loadGame called - couple:', couple?.id, 'user:', user?.id);
-    setLoadStatus('Checking data...');
+    // Prevent concurrent loadGame calls
+    if (isLoadingRef.current) {
+      console.log('[DailyGame] loadGame already in progress, skipping');
+      return;
+    }
     
     if (!couple?.id || !user?.id) {
       console.log('[DailyGame] Missing data - couple:', couple?.id, 'user:', user?.id);
       setLoadStatus('Waiting for user data...');
       return;
     }
+
+    isLoadingRef.current = true;
+    console.log('[DailyGame] loadGame started - couple:', couple.id, 'user:', user.id);
+    setLoadStatus('Connecting...');
 
     try {
       // Step 1: Get supabase client
@@ -249,9 +296,10 @@ export default function DailySyncGame() {
         throw new Error(`Auth user ${authUserId} does not match couple partners (${couple.partner_a_id}, ${couple.partner_b_id}). RLS will block all queries.`);
       }
       
-      // Step 3: Check for existing game today with timeout
+      // Step 3: Check for existing game today with timeout (LOCAL timezone)
       setLoadStatus("Checking today's game...");
-      const today = new Date().toISOString().split('T')[0];
+      const { start: todayStart, end: todayEnd } = getTodayBounds();
+      console.log('[DailyGame] Today bounds (local):', todayStart, 'to', todayEnd);
       
       let existingGame = null;
       try {
@@ -260,8 +308,10 @@ export default function DailySyncGame() {
             .from(TABLES.daily_sessions)
             .select('*')
             .eq('couple_id', couple.id)
-            .gte('created_at', today + 'T00:00:00')
-            .lt('created_at', today + 'T23:59:59.999')
+            .gte('created_at', todayStart)
+            .lte('created_at', todayEnd)
+            .order('created_at', { ascending: false })
+            .limit(1)
             .maybeSingle(),
           8000,
           'check existing game'
@@ -282,12 +332,21 @@ export default function DailySyncGame() {
         const myAnswer = isUserA ? existingGame.user_a_answer : existingGame.user_b_answer;
         const theirAnswer = isUserA ? existingGame.user_b_answer : existingGame.user_a_answer;
         
-        // Load question for display
-        const { data: q } = await withTimeout(
-          supabase.from(TABLES.questions).select('*').eq('id', existingGame.question_id).single(),
-          5000,
-          'fetch question'
-        );
+        // Load question for display with error handling
+        let q = null;
+        try {
+          const { data, error: qError } = await withTimeout(
+            supabase.from(TABLES.questions).select('*').eq('id', existingGame.question_id).single(),
+            5000,
+            'fetch question'
+          );
+          if (qError) {
+            console.warn('[DailyGame] Question fetch error:', qError.message);
+          }
+          q = data;
+        } catch (fetchErr: any) {
+          console.warn('[DailyGame] Question fetch failed:', fetchErr.message);
+        }
         
         if (q) {
           setQuestion({
@@ -297,7 +356,18 @@ export default function DailySyncGame() {
             question: q.question,
             options: q.options as string[],
           });
+        } else {
+          // If we can't load the question, show error rather than blank screen
+          console.error('[DailyGame] Question not found for id:', existingGame.question_id);
+          if (isMountedRef.current) {
+            isLoadingRef.current = false;
+            setErrorMessage('Could not load the question. Please try again.');
+            setPhase('error');
+          }
+          return;
         }
+        
+        if (!isMountedRef.current) return;
         
         if (myAnswer !== null && theirAnswer !== null) {
           // Both answered - show results
@@ -306,17 +376,20 @@ export default function DailySyncGame() {
           setPartnerOption(theirAnswer);
           setIsMatch(existingGame.is_match ?? false);
           await fetchGameStats();
+          isLoadingRef.current = false;
           setPhase('already_played');
           return;
         } else if (myAnswer !== null) {
           // I answered but partner hasn't - show submitted screen (no blocking wait!)
           setSession(existingGame);
           setSelectedOption(myAnswer);
+          isLoadingRef.current = false;
           setPhase('submitted');
           return;
         } else {
           // I haven't answered yet - show question (regardless of whether partner has answered)
           setSession(existingGame);
+          isLoadingRef.current = false;
           setPhase('question');
           return;
         }
@@ -328,9 +401,12 @@ export default function DailySyncGame() {
       
     } catch (err: any) {
       console.error('[DailyGame] Load error:', err);
-      const msg = err?.message || 'Unknown error';
-      setErrorMessage(`Game load failed: ${msg}`);
-      setPhase('error');
+      if (isMountedRef.current) {
+        isLoadingRef.current = false;
+        const msg = err?.message || 'Unknown error';
+        setErrorMessage(`Game load failed: ${msg}`);
+        setPhase('error');
+      }
     }
   };
 
@@ -427,7 +503,7 @@ export default function DailySyncGame() {
       
       // Step 3: SELECT the game we just created (separate query to isolate any RLS read issues)
       setLoadStatus('Loading new game...');
-      const today = new Date().toISOString().split('T')[0];
+      const { start: todayStart } = getTodayBounds();
       
       let newGame: any = null;
       try {
@@ -437,7 +513,7 @@ export default function DailySyncGame() {
             .select('*')
             .eq('couple_id', couple.id)
             .eq('question_id', randomQ.id)
-            .gte('created_at', today + 'T00:00:00')
+            .gte('created_at', todayStart)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
@@ -481,6 +557,8 @@ export default function DailySyncGame() {
         throw new Error('Game was inserted but could not be retrieved. This may be an RLS policy issue.');
       }
       
+      if (!isMountedRef.current) return;
+      
       console.log('[DailyGame] Game session ready:', newGame.id);
       setSession(newGame);
       setQuestion({
@@ -490,13 +568,17 @@ export default function DailySyncGame() {
         question: randomQ.question,
         options: randomQ.options as string[],
       });
+      isLoadingRef.current = false;
       setPhase('question');
       
     } catch (err: any) {
       console.error('[DailyGame] Create game error:', err);
-      const msg = err?.message || 'Unknown error';
-      setErrorMessage(`Failed to create game: ${msg}`);
-      setPhase('error');
+      if (isMountedRef.current) {
+        isLoadingRef.current = false;
+        const msg = err?.message || 'Unknown error';
+        setErrorMessage(`Failed to create game: ${msg}`);
+        setPhase('error');
+      }
     }
   };
 
@@ -505,6 +587,7 @@ export default function DailySyncGame() {
     
     try {
       const supabase = getSupabase();
+      if (!supabase) return;
       
       // Get streak
       const { data: streakData } = await supabase
@@ -541,19 +624,20 @@ export default function DailySyncGame() {
     
     try {
       const supabase = getSupabase();
+      if (!supabase) throw new Error('No database connection');
       
       // If session ID is 'pending' (INSERT succeeded but SELECT failed), re-fetch it
       let activeSessionId = session.id;
       if (activeSessionId === 'pending' && couple?.id && question?.id) {
         console.log('[DailyGame] Re-fetching session for pending game...');
-        const today = new Date().toISOString().split('T')[0];
+        const { start: todayStart } = getTodayBounds();
         const { data: refetched } = await withTimeout(
           supabase
             .from(TABLES.daily_sessions)
             .select('*')
             .eq('couple_id', couple.id)
             .eq('question_id', question.id)
-            .gte('created_at', today + 'T00:00:00')
+            .gte('created_at', todayStart)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
@@ -801,6 +885,24 @@ export default function DailySyncGame() {
         </View>
       )}
 
+      {/* Question phase but question failed to load */}
+      {phase === 'question' && !question && (
+        <View style={styles.centerContent}>
+          <Text style={dynamicStyles.errorText}>Could not load the question.</Text>
+          <Button
+            title="Try Again"
+            onPress={async () => {
+              setPhase('loading');
+              setLoadAttempts(0);
+              setErrorMessage('');
+              isLoadingRef.current = false;
+              if (couple?.id && user?.id) loadGame();
+            }}
+            variant="primary"
+          />
+        </View>
+      )}
+
       {/* Submitted Phase - Answer recorded, no need to wait! */}
       {phase === 'submitted' && question && selectedOption !== null && (
         <View style={styles.centerContent}>
@@ -956,6 +1058,7 @@ export default function DailySyncGame() {
               setPhase('loading');
               setLoadAttempts(0);
               setErrorMessage('');
+              isLoadingRef.current = false;
               // Actively fetch couple data if missing before retrying
               if (user?.id && !couple?.id) {
                 try {
@@ -964,7 +1067,9 @@ export default function DailySyncGame() {
                   console.warn('[DailyGame] fetchCouple retry failed:', e);
                 }
               }
-              loadGame();
+              if (couple?.id && user?.id) {
+                loadGame();
+              }
             }}
             variant="primary"
           />
