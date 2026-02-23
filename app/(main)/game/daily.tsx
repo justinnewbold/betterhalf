@@ -21,7 +21,7 @@ import { Confetti, CelebrationBurst } from '../../../components/ui/Confetti';
 import { typography, fontFamilies } from '../../../constants/typography';
 import { hapticSuccess, hapticError } from '../../../lib/haptics';
 
-type GamePhase = 'loading' | 'question' | 'waiting' | 'reveal' | 'results' | 'already_played' | 'error';
+type GamePhase = 'loading' | 'question' | 'submitted' | 'reveal' | 'results' | 'already_played' | 'error';
 
 interface Question {
   id: string;
@@ -109,9 +109,10 @@ export default function DailySyncGame() {
     checkAchievements();
   }, [phase, user?.id, achievementsChecked, stats, streak, isMatch]);
 
-  // Poll for partner's answer when waiting
+  // Background poll for partner's answer when in submitted phase
+  // Auto-transitions to reveal if partner answers while user is still on screen
   useEffect(() => {
-    if (phase !== 'waiting' || !session?.id) return;
+    if (phase !== 'submitted' || !session?.id || session.id === 'pending') return;
     
     const pollInterval = setInterval(async () => {
       try {
@@ -129,7 +130,7 @@ export default function DailySyncGame() {
           const theirAnswer = isUserA ? data.user_b_answer : data.user_a_answer;
           
           if (myAnswer !== null && theirAnswer !== null) {
-            // Both answered
+            // Both answered - auto-transition to reveal!
             setPartnerOption(theirAnswer);
             setIsMatch(data.is_match ?? false);
             setSession(data);
@@ -148,7 +149,7 @@ export default function DailySyncGame() {
       } catch (err) {
         console.error('Poll error:', err);
       }
-    }, 2000);
+    }, 3000); // Poll every 3 seconds in background
     
     return () => clearInterval(pollInterval);
   }, [phase, session?.id, isUserA]);
@@ -289,6 +290,7 @@ export default function DailySyncGame() {
         }
         
         if (myAnswer !== null && theirAnswer !== null) {
+          // Both answered - show results
           setSession(existingGame);
           setSelectedOption(myAnswer);
           setPartnerOption(theirAnswer);
@@ -297,11 +299,13 @@ export default function DailySyncGame() {
           setPhase('already_played');
           return;
         } else if (myAnswer !== null) {
+          // I answered but partner hasn't - show submitted screen (no blocking wait!)
           setSession(existingGame);
           setSelectedOption(myAnswer);
-          setPhase('waiting');
+          setPhase('submitted');
           return;
         } else {
+          // I haven't answered yet - show question (regardless of whether partner has answered)
           setSession(existingGame);
           setPhase('question');
           return;
@@ -571,7 +575,7 @@ export default function DailySyncGame() {
       const theirAnswer = isUserA ? updatedGame.user_b_answer : updatedGame.user_a_answer;
       
       if (theirAnswer !== null) {
-        // Both answered - calculate match
+        // Both answered - calculate match and go straight to reveal
         const matched = optionIndex === theirAnswer;
         
         await supabase
@@ -602,9 +606,9 @@ export default function DailySyncGame() {
         await refreshCoupleData();
         setPhase('reveal');
       } else {
-        // Waiting for partner
+        // Partner hasn't answered yet - go to submitted (no blocking wait!)
         setSession(updatedGame);
-        setPhase('waiting');
+        setPhase('submitted');
       }
       
     } catch (err) {
@@ -787,18 +791,49 @@ export default function DailySyncGame() {
         </View>
       )}
 
-      {/* Waiting Phase */}
-      {phase === 'waiting' && (
+      {/* Submitted Phase - Answer recorded, no need to wait! */}
+      {phase === 'submitted' && question && selectedOption !== null && (
         <View style={styles.centerContent}>
-          <WaitingAnimation
-            partnerName={connectionName}
-            isPartnerOnline={partnerState === 'online'}
-            isPartnerPlaying={partnerCurrentScreen === 'daily'}
-          />
+          <Text style={{ fontSize: 48, marginBottom: 16 }}>✅</Text>
           <Text style={dynamicStyles.waitingTitle}>Answer Submitted!</Text>
           <Text style={dynamicStyles.waitingSubtitle}>
-            Waiting for {connectionName} to answer...
+            You're all done for today.{'\n'}
+            Come back once {connectionName} answers to see if you matched!
           </Text>
+          
+          <Card style={[styles.submittedCard, { marginTop: 24 }]} variant="elevated" padding="medium">
+            <Text style={[styles.submittedQuestionLabel, { color: themeColors.textPrimaryMuted }]}>
+              {getCategoryEmoji(question.category)} {formatCategory(question.category)}
+            </Text>
+            <Text style={[styles.submittedQuestionText, { color: themeColors.textPrimary }]}>
+              {question.question}
+            </Text>
+            <View style={[styles.submittedAnswerBadge, { backgroundColor: `${themeColors.coral}15` }]}>
+              <Text style={[styles.submittedAnswerLabel, { color: themeColors.textPrimaryMuted }]}>
+                Your answer
+              </Text>
+              <Text style={[styles.submittedAnswerText, { color: themeColors.coral }]}>
+                {question.options[selectedOption]}
+              </Text>
+            </View>
+          </Card>
+          
+          {/* Subtle indicator that it's still checking */}
+          <View style={styles.pollingIndicator}>
+            <ActivityIndicator size="small" color={themeColors.textPrimaryMuted} />
+            <Text style={[styles.pollingText, { color: themeColors.textPrimaryMuted }]}>
+              We'll reveal results automatically if {connectionName} answers now
+            </Text>
+          </View>
+          
+          <View style={styles.finishContainer}>
+            <Button
+              title="Done for Now"
+              onPress={handleFinish}
+              variant="primary"
+              size="large"
+            />
+          </View>
         </View>
       )}
 
@@ -1006,6 +1041,49 @@ const styles = StyleSheet.create({
   answerText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  // Submitted phase styles
+  submittedCard: {
+    width: '100%',
+  },
+  submittedQuestionLabel: {
+    fontFamily: fontFamilies.bodySemiBold,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  submittedQuestionText: {
+    fontFamily: fontFamilies.bodySemiBold,
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  submittedAnswerBadge: {
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+  },
+  submittedAnswerLabel: {
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  submittedAnswerText: {
+    fontFamily: fontFamilies.bodyBold,
+    fontSize: 16,
+  },
+  pollingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    gap: 8,
+    opacity: 0.5,
+  },
+  pollingText: {
+    fontSize: 12,
   },
 });
 
