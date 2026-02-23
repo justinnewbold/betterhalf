@@ -183,6 +183,16 @@ export default function DailySyncGame() {
     return () => clearTimeout(timeout);
   }, [phase]);
 
+  // Utility: wrap a promise with a timeout
+  const withTimeout = <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) => 
+        setTimeout(() => reject(new Error(`Timeout: ${label} took longer than ${ms/1000}s`)), ms)
+      ),
+    ]);
+  };
+
   const loadGame = async () => {
     console.log('[DailyGame] loadGame called - couple:', couple?.id, 'user:', user?.id);
     setLoadStatus('Checking data...');
@@ -190,118 +200,109 @@ export default function DailySyncGame() {
     if (!couple?.id || !user?.id) {
       console.log('[DailyGame] Missing data - couple:', couple?.id, 'user:', user?.id);
       setLoadStatus('Waiting for user data...');
-      return; // Don't set phase to loading, let the retry useEffect handle it
+      return;
     }
 
     try {
-      setLoadStatus('Connecting to database...');
+      // Step 1: Get supabase client
+      setLoadStatus('Connecting...');
       const supabase = getSupabase();
       if (!supabase) {
         throw new Error('Database connection not available');
       }
       
-      // Verify we have an active session
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      // Step 2: Verify auth session with timeout
+      setLoadStatus('Verifying session...');
+      let currentSession;
+      try {
+        const { data } = await withTimeout(
+          supabase.auth.getSession(),
+          5000,
+          'getSession'
+        );
+        currentSession = data?.session;
+      } catch (sessionErr: any) {
+        throw new Error(`Session check failed: ${sessionErr.message}`);
+      }
+      
       if (!currentSession) {
         throw new Error('No active session - please log in again');
       }
-      console.log('[DailyGame] Session verified for user:', currentSession.user.id);
       
-      setLoadStatus("Checking for today's game...");
-      const today = new Date().toISOString().split('T')[0];
+      const authUserId = currentSession.user.id;
+      console.log('[DailyGame] Session verified. auth.uid():', authUserId);
+      console.log('[DailyGame] couple.partner_a_id:', couple.partner_a_id, 'couple.partner_b_id:', couple.partner_b_id);
       
-      // Check for existing game today
-      const { data: existingGame, error: gameError } = await supabase
-        .from(TABLES.daily_sessions)
-        .select('*')
-        .eq('couple_id', couple.id)
-        .gte('created_at', today + 'T00:00:00')
-        .lt('created_at', today + 'T23:59:59.999')
-        .maybeSingle();
-      
-      if (gameError) {
-        throw gameError;
+      // Verify the auth user matches one of the couple partners
+      if (authUserId !== couple.partner_a_id && authUserId !== couple.partner_b_id) {
+        throw new Error(`Auth user ${authUserId} does not match couple partners (${couple.partner_a_id}, ${couple.partner_b_id}). RLS will block all queries.`);
       }
       
-      console.log('[DailyGame] Existing game check:', existingGame ? 'found' : 'none');
+      // Step 3: Check for existing game today with timeout
+      setLoadStatus("Checking today's game...");
+      const today = new Date().toISOString().split('T')[0];
+      
+      let existingGame = null;
+      try {
+        const { data, error: gameError } = await withTimeout(
+          supabase
+            .from(TABLES.daily_sessions)
+            .select('*')
+            .eq('couple_id', couple.id)
+            .gte('created_at', today + 'T00:00:00')
+            .lt('created_at', today + 'T23:59:59.999')
+            .maybeSingle(),
+          8000,
+          'check existing game'
+        );
+        
+        if (gameError) {
+          throw new Error(`Game query error: ${gameError.message} (code: ${gameError.code})`);
+        }
+        existingGame = data;
+      } catch (queryErr: any) {
+        throw new Error(`Failed to check existing game: ${queryErr.message}`);
+      }
+      
+      console.log('[DailyGame] Existing game:', existingGame ? 'found' : 'none');
       
       if (existingGame) {
-        setLoadStatus('Found existing game...');
+        setLoadStatus('Loading game...');
         const myAnswer = isUserA ? existingGame.user_a_answer : existingGame.user_b_answer;
         const theirAnswer = isUserA ? existingGame.user_b_answer : existingGame.user_a_answer;
         
+        // Load question for display
+        const { data: q } = await withTimeout(
+          supabase.from(TABLES.questions).select('*').eq('id', existingGame.question_id).single(),
+          5000,
+          'fetch question'
+        );
+        
+        if (q) {
+          setQuestion({
+            id: q.id,
+            category: q.category,
+            difficulty: q.difficulty || 'medium',
+            question: q.question,
+            options: q.options as string[],
+          });
+        }
+        
         if (myAnswer !== null && theirAnswer !== null) {
-          // Game already completed
           setSession(existingGame);
           setSelectedOption(myAnswer);
           setPartnerOption(theirAnswer);
           setIsMatch(existingGame.is_match ?? false);
-          
-          // Fetch streak and stats
           await fetchGameStats();
-          
-          // Load question for display
-          const { data: q } = await supabase
-            .from(TABLES.questions)
-            .select('*')
-            .eq('id', existingGame.question_id)
-            .single();
-          
-          if (q) {
-            setQuestion({
-              id: q.id,
-              category: q.category,
-              difficulty: q.difficulty || 'medium',
-              question: q.question,
-              options: q.options as string[],
-            });
-          }
-          
           setPhase('already_played');
           return;
         } else if (myAnswer !== null) {
-          // I've answered, waiting for partner
           setSession(existingGame);
           setSelectedOption(myAnswer);
-          
-          const { data: q } = await supabase
-            .from(TABLES.questions)
-            .select('*')
-            .eq('id', existingGame.question_id)
-            .single();
-          
-          if (q) {
-            setQuestion({
-              id: q.id,
-              category: q.category,
-              difficulty: q.difficulty || 'medium',
-              question: q.question,
-              options: q.options as string[],
-            });
-          }
-          
           setPhase('waiting');
           return;
         } else {
-          // Partner started, I haven't answered
           setSession(existingGame);
-          
-          const { data: q } = await supabase
-            .from(TABLES.questions)
-            .select('*')
-            .eq('id', existingGame.question_id)
-            .single();
-          
-          if (q) {
-            setQuestion({
-              id: q.id,
-              category: q.category,
-              difficulty: q.difficulty || 'medium',
-              question: q.question,
-              options: q.options as string[],
-            });
-          }
-          
           setPhase('question');
           return;
         }
@@ -309,16 +310,17 @@ export default function DailySyncGame() {
       
       // No game today - create new one
       setLoadStatus('Creating new game...');
-      await createNewGame();
+      await createNewGame(authUserId);
       
-    } catch (err) {
-      console.error('Load game error:', err);
-      setErrorMessage('Failed to load game');
+    } catch (err: any) {
+      console.error('[DailyGame] Load error:', err);
+      const msg = err?.message || 'Unknown error';
+      setErrorMessage(`Game load failed: ${msg}`);
       setPhase('error');
     }
   };
 
-  const createNewGame = async () => {
+  const createNewGame = async (authUserId?: string) => {
     if (!couple?.id || !user?.id) {
       setErrorMessage('Missing couple or user data');
       setPhase('error');
@@ -332,30 +334,44 @@ export default function DailySyncGame() {
         throw new Error('Database connection not available');
       }
       
-      // Get couple's preferred categories (fixed: use valid category names)
+      // Get couple's preferred categories
       const preferredCategories = couple.preferred_categories || ['daily_life', 'heart', 'deep_talks', 'fun', 'spice'];
       console.log('[DailyGame] Using categories:', preferredCategories);
       
-      // Get random question from preferred categories
-      let { data: questions, error: qError } = await supabase
-        .from(TABLES.questions)
-        .select('*')
-        .in('category', preferredCategories)
-        .eq('for_couples', true);
+      // Step 1: Get questions with timeout
+      let questions: any[] | null = null;
+      try {
+        const { data, error: qError } = await withTimeout(
+          supabase
+            .from(TABLES.questions)
+            .select('*')
+            .in('category', preferredCategories)
+            .eq('for_couples', true),
+          8000,
+          'fetch questions'
+        );
+        
+        if (qError) throw new Error(`Question query: ${qError.message} (${qError.code})`);
+        questions = data;
+      } catch (qErr: any) {
+        throw new Error(`Failed to load questions: ${qErr.message}`);
+      }
       
-      if (qError) throw qError;
-      
-      // Fallback: if no questions found with preferred categories, try ALL couples questions
+      // Fallback: try ALL couples questions
       if (!questions || questions.length === 0) {
         console.log('[DailyGame] No questions in preferred categories, trying all...');
-        setLoadStatus("Loading questions (fallback)...");
-        const { data: allQuestions, error: allError } = await supabase
-          .from(TABLES.questions)
-          .select('*')
-          .eq('for_couples', true);
-        
-        if (allError) throw allError;
-        questions = allQuestions;
+        setLoadStatus('Loading questions (fallback)...');
+        try {
+          const { data: allQuestions, error: allError } = await withTimeout(
+            supabase.from(TABLES.questions).select('*').eq('for_couples', true),
+            8000,
+            'fetch all questions'
+          );
+          if (allError) throw new Error(`Fallback query: ${allError.message}`);
+          questions = allQuestions;
+        } catch (fbErr: any) {
+          throw new Error(`Fallback question load failed: ${fbErr.message}`);
+        }
       }
       
       if (!questions || questions.length === 0) {
@@ -367,21 +383,91 @@ export default function DailySyncGame() {
       // Pick random question
       const randomQ = questions[Math.floor(Math.random() * questions.length)];
       
+      // Step 2: INSERT game session (without .select() to avoid RLS read-back issues)
+      setLoadStatus('Creating game session...');
+      console.log('[DailyGame] Inserting session: couple_id=', couple.id, 'question_id=', randomQ.id);
+      
+      let insertError: any = null;
+      try {
+        const { error } = await withTimeout(
+          supabase
+            .from(TABLES.daily_sessions)
+            .insert({
+              couple_id: couple.id,
+              question_id: randomQ.id,
+            }),
+          8000,
+          'insert game session'
+        );
+        insertError = error;
+      } catch (insErr: any) {
+        throw new Error(`INSERT timed out or failed: ${insErr.message}`);
+      }
+      
+      if (insertError) {
+        console.error('[DailyGame] INSERT error:', JSON.stringify(insertError));
+        throw new Error(`INSERT failed: ${insertError.message} (code: ${insertError.code}, details: ${insertError.details || 'none'})`);
+      }
+      
+      console.log('[DailyGame] INSERT succeeded, now fetching back...');
+      
+      // Step 3: SELECT the game we just created (separate query to isolate any RLS read issues)
+      setLoadStatus('Loading new game...');
       const today = new Date().toISOString().split('T')[0];
       
-      // Create game session
-      setLoadStatus('Creating game session...');
-      const { data: newGame, error: createError } = await supabase
-        .from(TABLES.daily_sessions)
-        .insert({
+      let newGame: any = null;
+      try {
+        const { data, error: selectError } = await withTimeout(
+          supabase
+            .from(TABLES.daily_sessions)
+            .select('*')
+            .eq('couple_id', couple.id)
+            .eq('question_id', randomQ.id)
+            .gte('created_at', today + 'T00:00:00')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          8000,
+          'fetch new game'
+        );
+        
+        if (selectError) {
+          console.error('[DailyGame] SELECT after INSERT error:', JSON.stringify(selectError));
+          // Game was created but we can't read it back - construct minimal session
+          console.log('[DailyGame] Using constructed session as fallback');
+          newGame = {
+            id: 'pending',
+            couple_id: couple.id,
+            question_id: randomQ.id,
+            user_a_answer: null,
+            user_b_answer: null,
+            is_match: null,
+            completed_at: null,
+            created_at: new Date().toISOString(),
+          };
+        } else {
+          newGame = data;
+        }
+      } catch (selErr: any) {
+        // SELECT timed out but INSERT succeeded - use constructed session
+        console.warn('[DailyGame] SELECT timeout, using constructed session:', selErr.message);
+        newGame = {
+          id: 'pending',
           couple_id: couple.id,
           question_id: randomQ.id,
-        })
-        .select()
-        .single();
+          user_a_answer: null,
+          user_b_answer: null,
+          is_match: null,
+          completed_at: null,
+          created_at: new Date().toISOString(),
+        };
+      }
       
-      if (createError) throw createError;
+      if (!newGame) {
+        throw new Error('Game was inserted but could not be retrieved. This may be an RLS policy issue.');
+      }
       
+      console.log('[DailyGame] Game session ready:', newGame.id);
       setSession(newGame);
       setQuestion({
         id: randomQ.id,
@@ -392,9 +478,10 @@ export default function DailySyncGame() {
       });
       setPhase('question');
       
-    } catch (err) {
-      console.error('Create game error:', err);
-      setErrorMessage('Failed to create game');
+    } catch (err: any) {
+      console.error('[DailyGame] Create game error:', err);
+      const msg = err?.message || 'Unknown error';
+      setErrorMessage(`Failed to create game: ${msg}`);
       setPhase('error');
     }
   };
@@ -787,12 +874,26 @@ export default function DailySyncGame() {
       {/* Error Phase */}
       {phase === 'error' && (
         <View style={styles.centerContent}>
-          <Text style={dynamicStyles.errorText}>{errorMessage || 'Something went wrong'}</Text>
+          <Text style={[dynamicStyles.errorText, { marginBottom: 8 }]}>⚠️ Something went wrong</Text>
+          <Text style={[dynamicStyles.secondaryText, { textAlign: 'center', marginBottom: 16, fontSize: 13 }]}>
+            {errorMessage || 'Unknown error'}
+          </Text>
           <Button
             title="Try Again"
-            onPress={loadGame}
+            onPress={() => {
+              setPhase('loading');
+              setLoadAttempts(0);
+              setErrorMessage('');
+              loadGame();
+            }}
             variant="primary"
           />
+          <TouchableOpacity
+            style={{ marginTop: 16 }}
+            onPress={() => router.back()}
+          >
+            <Text style={[dynamicStyles.secondaryText, { textDecorationLine: 'underline' }]}>Go Back</Text>
+          </TouchableOpacity>
         </View>
       )}
     </SafeAreaView>
