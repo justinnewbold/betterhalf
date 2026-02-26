@@ -126,7 +126,7 @@ export const TABLES = {
 } as const;
 
 // Question category types
-export type QuestionCategory = 'daily_life' | 'heart' | 'history' | 'spice' | 'fun' | 'deep_talks' | 'nostalgia' | 'would_you_rather' | 'custom';
+export type QuestionCategory = 'daily_life' | 'heart' | 'history' | 'spice' | 'fun' | 'deep_talks' | 'nostalgia' | 'would_you_rather' | 'dreams_goals' | 'unpopular_opinions' | 'this_or_that' | 'money_finance' | 'parenting_family' | 'custom';
 
 export const QUESTION_CATEGORIES: { id: QuestionCategory; label: string; icon: string; description: string }[] = [
   { id: 'daily_life', label: 'Daily Life', icon: '☀️', description: 'Everyday moments and routines' },
@@ -155,10 +155,10 @@ export const RELATIONSHIP_TYPES: { id: RelationshipType; label: string; icon: st
 export type FriendStatus = 'pending' | 'accepted' | 'declined' | 'blocked';
 
 // Categories appropriate for friends (excludes romance/spicy)
-export const FRIEND_SAFE_CATEGORIES: QuestionCategory[] = ['daily_life', 'history', 'fun', 'deep_talks', 'nostalgia', 'would_you_rather', 'custom'];
+export const FRIEND_SAFE_CATEGORIES: QuestionCategory[] = ['daily_life', 'history', 'fun', 'deep_talks', 'nostalgia', 'would_you_rather', 'dreams_goals', 'unpopular_opinions', 'this_or_that', 'money_finance', 'custom'];
 
 // Categories appropriate for family (excludes romance/spicy)
-export const FAMILY_SAFE_CATEGORIES: QuestionCategory[] = ['daily_life', 'history', 'fun', 'deep_talks', 'nostalgia', 'would_you_rather', 'custom'];
+export const FAMILY_SAFE_CATEGORIES: QuestionCategory[] = ['daily_life', 'history', 'fun', 'deep_talks', 'nostalgia', 'would_you_rather', 'dreams_goals', 'unpopular_opinions', 'this_or_that', 'money_finance', 'parenting_family', 'custom'];
 
 // Helper types
 export type Tables = {
