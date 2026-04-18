@@ -23,11 +23,8 @@ interface GameResult {
   friend_answer: number | null;
   is_match: boolean | null;
   question?: {
-    question_text: string;
-    option_1: string;
-    option_2: string;
-    option_3: string;
-    option_4: string;
+    question: string;
+    options: string[];
     category: string;
   };
 }
@@ -112,11 +109,8 @@ export default function FriendGameResultsScreen() {
         .select(`
           *,
           question:betterhalf_questions(
-            question_text,
-            option_1,
-            option_2,
-            option_3,
-            option_4,
+            question,
+            options,
             category
           )
         `)
@@ -187,13 +181,8 @@ export default function FriendGameResultsScreen() {
   
   const getAnswerText = (answerIndex: number | null) => {
     if (answerIndex === null || !gameResult?.question) return 'No answer';
-    const options = [
-      gameResult.question.option_1,
-      gameResult.question.option_2,
-      gameResult.question.option_3,
-      gameResult.question.option_4,
-    ].filter(Boolean);
-    return options[answerIndex - 1] || 'Unknown';
+    const options = gameResult.question.options || [];
+    return options[answerIndex] || 'Unknown';
   };
   
   const getCategoryEmoji = (category: string) => {
@@ -308,7 +297,7 @@ export default function FriendGameResultsScreen() {
           <Text style={styles.categoryBadge}>
             {getCategoryEmoji(gameResult.question.category)} {gameResult.question.category.replace('_', ' ')}
           </Text>
-          <Text style={styles.questionText}>{gameResult.question.question_text}</Text>
+          <Text style={styles.questionText}>{gameResult.question.question}</Text>
         </View>
         
         {/* Answers Comparison */}

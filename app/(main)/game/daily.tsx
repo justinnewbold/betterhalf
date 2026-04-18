@@ -816,6 +816,10 @@ export default function DailySyncGame() {
       textAlign: 'center' as const,
       marginBottom: 16,
     },
+    secondaryText: {
+      ...typography.body,
+      color: themeColors.textPrimarySecondary,
+    },
   };
 
   const getCategoryEmoji = (category: string) => {

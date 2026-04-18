@@ -50,7 +50,9 @@ export default function FriendGameHistoryScreen() {
   
   const friend = getFriendById(friendshipId || '');
   const isInitiator = friend?.user_id === user?.id;
-  const friendUser = isInitiator ? friend?.friend_user : friend?.initiator_user;
+  // friend_user on FriendWithUser is always "the other person" regardless of
+  // who initiated — friendsStore normalizes this when loading the friendship.
+  const friendUser = friend?.friend_user;
   const friendName = friend?.nickname || friendUser?.display_name || 'Friend';
   
   const [history, setHistory] = useState<GroupedHistory[]>([]);
