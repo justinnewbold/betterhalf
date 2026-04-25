@@ -6,7 +6,7 @@ import { Card } from '../../../components/ui/Card';
 import { useAuthStore } from '../../../stores/authStore';
 import { useCoupleStore } from '../../../stores/coupleStore';
 import { useThemeStore } from '../../../stores/themeStore';
-import { getSupabase, TABLES } from '../../../lib/supabase';
+import { getSupabase, TABLES, QUESTION_CATEGORIES } from '../../../lib/supabase';
 import { colors, getThemeColors, ThemeColors } from '../../../constants/colors';
 import { typography, fontFamilies } from '../../../constants/typography';
 
@@ -37,13 +37,15 @@ function CategoryBar({ emoji, name, percentage, themeColors, isDark }: CategoryB
   );
 }
 
-const CATEGORY_CONFIG: Record<string, { emoji: string; name: string }> = {
-  daily_life: { emoji: '☀️', name: 'Daily Life' },
-  heart: { emoji: '❤️', name: 'Heart' },
-  history: { emoji: '📸', name: 'History' },
-  spice: { emoji: '🔥', name: 'Spice' },
-  fun: { emoji: '🎉', name: 'Fun' },
-};
+// Build category display config from the central QUESTION_CATEGORIES list
+// so every category in the app shows up in stats — not just a hardcoded subset.
+const CATEGORY_CONFIG: Record<string, { emoji: string; name: string }> = QUESTION_CATEGORIES.reduce(
+  (acc, cat) => {
+    acc[cat.id] = { emoji: cat.icon, name: cat.label };
+    return acc;
+  },
+  {} as Record<string, { emoji: string; name: string }>
+);
 
 export default function Stats() {
   const { user } = useAuthStore();
@@ -168,6 +170,13 @@ export default function Stats() {
     ? categoriesWithData.reduce((a, b) => a.percentage < b.percentage ? a : b)
     : null;
 
+  // Render only categories the user has actually played, sorted by sync score descending.
+  // Falls back to the full list if data hasn't loaded yet, so the card is never empty
+  // when totalGames > 0.
+  const categoriesToRender = categoriesWithData.length > 0
+    ? [...categoriesWithData].sort((a, b) => b.percentage - a.percentage)
+    : categoryDisplay;
+
   if (isLoading) {
     return (
       <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={['top']}>
@@ -199,7 +208,7 @@ export default function Stats() {
           <>
             <Card style={styles.card}>
               <Text style={[styles.cardLabel, dynamicStyles.cardLabel]}>BY CATEGORY</Text>
-              {categoryDisplay.map((cat) => (
+              {categoriesToRender.map((cat) => (
                 <CategoryBar 
                   key={cat.name} 
                   emoji={cat.emoji}

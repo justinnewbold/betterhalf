@@ -131,10 +131,17 @@ export type QuestionCategory = 'daily_life' | 'heart' | 'history' | 'spice' | 'f
 export const QUESTION_CATEGORIES: { id: QuestionCategory; label: string; icon: string; description: string }[] = [
   { id: 'daily_life', label: 'Daily Life', icon: '☀️', description: 'Everyday moments and routines' },
   { id: 'heart', label: 'Romance', icon: '💕', description: 'Love, affection, and intimacy' },
-  { id: 'history', label: 'Deep Talks', icon: '💭', description: 'Life stories and meaningful moments' },
+  { id: 'history', label: 'Memories', icon: '📸', description: 'Life stories and meaningful moments' },
   { id: 'spice', label: 'Spicy', icon: '🔥', description: 'Playful and adventurous questions' },
   { id: 'fun', label: 'Fun', icon: '🎉', description: 'Light-hearted and entertaining' },
-  { id: 'deep_talks', label: 'Deep Conversations', icon: '💬', description: 'Meaningful questions about life' },
+  { id: 'deep_talks', label: 'Deep Talks', icon: '💭', description: 'Meaningful questions about life' },
+  { id: 'nostalgia', label: 'Nostalgia', icon: '🕰️', description: 'Looking back at the past together' },
+  { id: 'would_you_rather', label: 'Would You Rather', icon: '🤔', description: 'Choose between two options' },
+  { id: 'dreams_goals', label: 'Dreams & Goals', icon: '🌟', description: 'Aspirations and future plans' },
+  { id: 'unpopular_opinions', label: 'Unpopular Opinions', icon: '🌶️', description: 'Hot takes and bold views' },
+  { id: 'this_or_that', label: 'This or That', icon: '⚖️', description: 'Quick preference picks' },
+  { id: 'money_finance', label: 'Money & Finance', icon: '💰', description: 'How you think about money' },
+  { id: 'parenting_family', label: 'Parenting & Family', icon: '👨‍👩‍👧‍👦', description: 'Family life and raising kids' },
   { id: 'custom', label: 'Custom', icon: '✨', description: 'Questions you created together' },
 ];
 
