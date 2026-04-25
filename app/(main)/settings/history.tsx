@@ -155,8 +155,15 @@ export default function History() {
 
     items.forEach(item => {
       const date = new Date(item.completed_at);
-      const dateKey = date.toISOString().split('T')[0];
-      
+      // Group by the user's LOCAL calendar day, not UTC. Using toISOString()
+      // would push a session completed at, e.g., 9pm Pacific into the next
+      // day's group because UTC is several hours ahead. This matches the
+      // local-day pattern used in app/(main)/game/daily.tsx.
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${day}`;
+
       if (!groups[dateKey]) {
         groups[dateKey] = [];
       }
